@@ -19,6 +19,9 @@ poetry.lock
 dist/
 build/
 
+# Test
+test\
+
 # Conda
 .conda/
 conda-env/
