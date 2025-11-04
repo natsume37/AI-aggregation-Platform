@@ -1,0 +1,111 @@
+# -*- coding: utf-8 -*-
+"""
+@File    : conversation.py.py
+@Author  : Martin
+@Time    : 2025/11/4 11:19
+@Desc    : 
+"""
+from typing import Optional, List
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
+from app.crud.base import CRUDBase
+from app.models.conversation import Conversation
+from app.models.message import Message
+
+
+class ConversationCreate(BaseModel):
+    """创建对话Schema"""
+    user_id: int
+    title: str
+    model_name: str
+    provider: str
+
+
+class ConversationCRUD(CRUDBase[Conversation, ConversationCreate, BaseModel]):
+    """对话CRUD操作"""
+
+    async def get_by_user(
+            self,
+            db: AsyncSession,
+            user_id: int,
+            skip: int = 0,
+            limit: int = 100
+    ) -> List[Conversation]:
+        """获取用户的对话列表"""
+        result = await db.execute(
+            select(Conversation)
+            .where(Conversation.user_id == user_id)
+            .order_by(Conversation.updated_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def get_with_messages(
+            self,
+            db: AsyncSession,
+            conversation_id: int,
+            user_id: Optional[int] = None
+    ) -> Optional[Conversation]:
+        """获取对话及其消息"""
+        query = select(Conversation).options(
+            selectinload(Conversation.messages)
+        ).where(Conversation.id == conversation_id)
+
+        if user_id:
+            query = query.where(Conversation.user_id == user_id)
+
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def count_by_user(self, db: AsyncSession, user_id: int) -> int:
+        """统计用户对话数"""
+        result = await db.execute(
+            select(func.count())
+            .select_from(Conversation)
+            .where(Conversation.user_id == user_id)
+        )
+        return result.scalar_one()
+
+    async def add_message(
+            self,
+            db: AsyncSession,
+            conversation_id: int,
+            role: str,
+            content: str,
+            tokens: int = 0
+    ) -> Message:
+        """添加消息到对话"""
+        message = Message(
+            conversation_id=conversation_id,
+            role=role,
+            content=content,
+            tokens=tokens
+        )
+        db.add(message)
+        await db.flush()
+        await db.refresh(message)
+        return message
+
+    async def get_messages(
+            self,
+            db: AsyncSession,
+            conversation_id: int,
+            limit: Optional[int] = None
+    ) -> List[Message]:
+        """获取对话消息"""
+        query = select(Message).where(
+            Message.conversation_id == conversation_id
+        ).order_by(Message.created_at.asc())
+
+        if limit:
+            query = query.limit(limit)
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+
+# 全局实例 - 确保这行存在！
+conversation_crud = ConversationCRUD(Conversation)
