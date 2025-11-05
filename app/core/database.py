@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @File    : database.py.py
 @Author  : Martin
@@ -6,13 +5,11 @@
 @Desc    :
 """
 
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
 from app.core.logging import log
-
+from collections.abc import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
 class Base(DeclarativeBase):
     """SQLAlchemy基础模型类"""
@@ -32,11 +29,7 @@ engine = create_async_engine(
 
 # 创建会话工厂
 AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
+    engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False
 )
 
 
@@ -51,7 +44,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.commit()
         except Exception as e:
             await session.rollback()
-            log.error(f"Database session error: {e}")
+            log.error(f'Database session error: {e}')
             raise
         finally:
             await session.close()
@@ -61,13 +54,13 @@ async def init_db():
     """初始化数据库（仅用于测试）"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    log.info("Database initialized")
+    log.info('Database initialized')
 
 
 async def close_db():
     """关闭数据库连接"""
     await engine.dispose()
-    log.info("Database connection closed")
+    log.info('Database connection closed')
 
 
 def get_engine():

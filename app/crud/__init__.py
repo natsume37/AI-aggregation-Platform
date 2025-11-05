@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @File    : __init__.py
 @Author  : Martin
@@ -6,10 +5,7 @@
 @Desc    :
 """
 
-from app.crud.user import user_crud
 from app.crud.api_key import api_key_crud
+from app.crud.user import user_crud
 
-__all__ = [
-    "user_crud",
-    "api_key_crud",
-]
+__all__ = ['user_crud', 'api_key_crud']

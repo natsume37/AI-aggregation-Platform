@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @File    : base.py
 @Author  : Martin
@@ -7,19 +6,19 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Optional, Dict, Any, List
+from app.schemas.chat import ChatCompletionResponse
+from collections.abc import AsyncIterator
 from enum import Enum
 from pydantic import BaseModel
-
 
 class ModelProvider(str, Enum):
     """模型供应商"""
 
-    OPENAI = "openai"
-    CLAUDE = "claude"
-    ZHIPU = "zhipu"
-    QWEN = "qwen"
-    SILICONFLOW = "siliconflow"
+    OPENAI = 'openai'
+    CLAUDE = 'claude'
+    ZHIPU = 'zhipu'
+    QWEN = 'qwen'
+    SILICONFLOW = 'siliconflow'
 
 
 class ChatMessage(BaseModel):
@@ -27,16 +26,16 @@ class ChatMessage(BaseModel):
 
     role: str  # system, user, assistant
     content: str
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class ChatRequest(BaseModel):
     """聊天请求"""
 
     model: str
-    messages: List[ChatMessage]
+    messages: list[ChatMessage]
     temperature: float = 0.7
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
     stream: bool = False
     top_p: float = 1.0
     frequency_penalty: float = 0.0
@@ -50,7 +49,7 @@ class ChatResponse(BaseModel):
     model: str
     content: str
     finish_reason: str
-    usage: Dict[str, int]  # prompt_tokens, completion_tokens, total_tokens
+    usage: dict[str, int]  # prompt_tokens, completion_tokens, total_tokens
     provider: ModelProvider
 
 
@@ -58,7 +57,7 @@ class StreamChunk(BaseModel):
     """流式响应块"""
 
     content: str
-    finish_reason: Optional[str] = None
+    finish_reason: str | None = None
 
 
 class BaseLLMAdapter(ABC):
@@ -67,13 +66,13 @@ class BaseLLMAdapter(ABC):
     所有模型适配器都必须继承此类
     """
 
-    def __init__(self, api_key: str, base_url: Optional[str] = None):
+    def __init__(self, api_key: str, base_url: str | None = None):
         self.api_key = api_key
         self.base_url = base_url
         self.provider: ModelProvider = ModelProvider.OPENAI
 
     @abstractmethod
-    async def chat(self, request: ChatRequest) -> ChatResponse:
+    async def chat(self, request: ChatRequest) -> ChatCompletionResponse:
         """
         非流式聊天
         """
@@ -81,20 +80,18 @@ class BaseLLMAdapter(ABC):
 
     @abstractmethod
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
-        """
-        流式聊天
-        """
+        """流式回答"""
         pass
 
     @abstractmethod
-    def get_available_models(self) -> List[str]:
+    def get_available_models(self) -> list[str]:
         """
         获取可用模型列表
         """
         pass
 
     @abstractmethod
-    def calculate_cost(self, usage: Dict[str, int], model: str) -> float:
+    def calculate_cost(self, usage: dict[str, int], model: str) -> float:
         """
         计算成本
         """
@@ -103,10 +100,10 @@ class BaseLLMAdapter(ABC):
     def validate_request(self, request: ChatRequest) -> None:
         """验证请求参数"""
         if not request.messages:
-            raise ValueError("Messages cannot be empty")
+            raise ValueError('Messages cannot be empty')
 
         if request.temperature < 0 or request.temperature > 2:
-            raise ValueError("Temperature must be between 0 and 2")
+            raise ValueError('Temperature must be between 0 and 2')
 
         if request.model not in self.get_available_models():
-            raise ValueError(f"Model {request.model} not supported")
+            raise ValueError(f'Model {request.model} not supported')

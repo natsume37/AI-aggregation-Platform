@@ -1,103 +1,88 @@
-from typing import Literal, Optional
 from pydantic import Field, PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from typing import Literal
 
 class Settings(BaseSettings):
     """应用配置类"""
 
     # OpenAI配置
-    OPENAI_API_KEY: str = Field(default="", description="OpenAI API密钥")
-    OPENAI_BASE_URL: Optional[str] = Field(
-        default=None, description="OpenAI API基础URL"
-    )
+    OPENAI_API_KEY: str = Field(default='', description='OpenAI API密钥')
+    OPENAI_BASE_URL: str | None = Field(default=None, description='OpenAI API基础URL')
     # 硅基流动配置
-    SILICONFLOW_API_KEY: str = Field(default="", description="OpenAI API密钥")
-    SILICONFLOW_BASE_URL: Optional[str] = Field(
-        default=None, description="OpenAI API基础URL"
-    )
+    SILICONFLOW_API_KEY: str = Field(default='', description='OpenAI API密钥')
+    SILICONFLOW_BASE_URL: str | None = Field(default=None, description='OpenAI API基础URL')
     # 应用基础配置
-    APP_NAME: str = Field(default="FastAPI AI Backend", description="应用名称")
-    APP_VERSION: str = Field(default="1.0.0", description="应用版本")
-    ENVIRONMENT: Literal["development", "staging", "production"] = Field(
-        default="development", description="运行环境"
-    )
-    DEBUG: bool = Field(default=False, description="调试模式")
+    APP_NAME: str = Field(default='FastAPI AI Backend', description='应用名称')
+    APP_VERSION: str = Field(default='1.0.0', description='应用版本')
+    ENVIRONMENT: Literal['development', 'staging', 'production'] = Field(default='development', description='运行环境')
+    DEBUG: bool = Field(default=False, description='调试模式')
 
     # 服务器配置
-    HOST: str = Field(default="0.0.0.0", description="服务器主机")
-    PORT: int = Field(default=8000, description="服务器端口")
+    HOST: str = Field(default='0.0.0.0', description='服务器主机')
+    PORT: int = Field(default=8000, description='服务器端口')
 
     # 数据库配置
-    DATABASE_URL: PostgresDsn = Field(description="数据库连接URL")
-    DATABASE_POOL_SIZE: int = Field(default=20, description="数据库连接池大小")
-    DATABASE_MAX_OVERFLOW: int = Field(default=10, description="数据库最大溢出连接")
+    DATABASE_URL: PostgresDsn = Field(description='数据库连接URL')
+    DATABASE_POOL_SIZE: int = Field(default=20, description='数据库连接池大小')
+    DATABASE_MAX_OVERFLOW: int = Field(default=10, description='数据库最大溢出连接')
 
     # 日志配置
-    LOG_LEVEL: str = Field(default="INFO", description="日志级别")
-    LOG_FILE_PATH: str = Field(default="./logs", description="日志文件路径")
+    LOG_LEVEL: str = Field(default='INFO', description='日志级别')
+    LOG_FILE_PATH: str = Field(default='./logs', description='日志文件路径')
 
     # 安全配置
-    SECRET_KEY: str = Field(description="JWT密钥")
-    ALGORITHM: str = Field(default="HS256", description="JWT算法")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        default=30, description="访问令牌过期时间(分钟)"
-    )
+    SECRET_KEY: str = Field(description='JWT密钥')
+    ALGORITHM: str = Field(default='HS256', description='JWT算法')
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, description='访问令牌过期时间(分钟)')
 
     # Pydantic配置
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', case_sensitive=True, extra='ignore')
 
-    @field_validator("DATABASE_URL", mode="before")
+    @field_validator('DATABASE_URL', mode='before')
     @classmethod
     def validate_database_url(cls, v: str) -> str:
         """验证数据库URL"""
         if not v:
-            raise ValueError("DATABASE_URL must be set")
+            raise ValueError('DATABASE_URL must be set')
         return v
 
     @property
     def is_development(self) -> bool:
         """是否为开发环境"""
-        return self.ENVIRONMENT == "development"
+        return self.ENVIRONMENT == 'development'
 
     @property
     def is_production(self) -> bool:
         """是否为生产环境"""
-        return self.ENVIRONMENT == "production"
+        return self.ENVIRONMENT == 'production'
 
     @property
     def database_url_sync(self) -> str:
         """同步数据库URL (用于Alembic)"""
-        return str(self.DATABASE_URL).replace("+asyncpg", "")
+        return str(self.DATABASE_URL).replace('+asyncpg', '')
 
 
 # 根据环境加载不同配置文件
 def get_settings() -> Settings:
     import os
 
-    env = os.getenv("ENVIRONMENT", "development")
-    print(f"[DEBUG] 系统环境变量 ENVIRONMENT = {os.getenv('ENVIRONMENT')}")
+    env = os.getenv('ENVIRONMENT', 'development')
+    print(f'[DEBUG] 系统环境变量 ENVIRONMENT = {os.getenv("ENVIRONMENT")}')
 
-    env_file_map = {
-        "development": ".env.dev",
-        "staging": ".env.staging",
-        "production": ".env.prod",
-    }
-    env_file = env_file_map.get(env, ".env")
-    print(f"[DEBUG] 即将加载配置文件: {env_file}")
+    env_file_map = {'development': '.env.dev', 'staging': '.env.staging', 'production': '.env.prod'}
+    env_file = env_file_map.get(env, '.env')
+    print(f'[DEBUG] 即将加载配置文件: {env_file}')
 
     # 强制打印文件是否存在
     import pathlib
 
     file_path = pathlib.Path(env_file)
-    print(f"[DEBUG] 文件是否存在？: {file_path.exists()} -> {file_path.resolve()}")
+    print(f'[DEBUG] 文件是否存在？: {file_path.exists()} -> {file_path.resolve()}')
 
     settings = Settings(_env_file=env_file)
 
-    print(f"[DEBUG] 成功加载 OPENAI_API_KEY: {settings.OPENAI_API_KEY[:10]}...")
-    print(f"[DEBUG] 成功加载 OPENAI_BASE_URL: {settings.OPENAI_BASE_URL}")
+    print(f'[DEBUG] 成功加载 OPENAI_API_KEY: {settings.OPENAI_API_KEY[:10]}...')
+    print(f'[DEBUG] 成功加载 OPENAI_BASE_URL: {settings.OPENAI_BASE_URL}')
 
     return settings
 

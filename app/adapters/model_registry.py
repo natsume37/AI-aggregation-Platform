@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @File    : model_registry.py.py
 @Author  : Martin
@@ -6,13 +5,11 @@
 @Desc    :
 """
 
-from typing import Dict, Type, Optional
 from app.adapters.base import BaseLLMAdapter, ModelProvider
 from app.adapters.openai import OpenAIAdapter
 from app.adapters.siliconflow import SiliconFlow
 from app.core.config import settings
 from app.core.logging import log
-
 
 class ModelRegistry:
     """
@@ -21,8 +18,8 @@ class ModelRegistry:
     """
 
     def __init__(self):
-        self._adapters: Dict[ModelProvider, Type[BaseLLMAdapter]] = {}
-        self._instances: Dict[str, BaseLLMAdapter] = {}
+        self._adapters: dict[ModelProvider, type[BaseLLMAdapter]] = {}
+        self._instances: dict[str, BaseLLMAdapter] = {}
         self._register_default_adapters()
 
     def _register_default_adapters(self):
@@ -33,23 +30,20 @@ class ModelRegistry:
         # self.register(ModelProvider.CLAUDE, ClaudeAdapter)
         # self.register(ModelProvider.ZHIPU, ZhipuAdapter)
 
-    def register(self, provider: ModelProvider, adapter_class: Type[BaseLLMAdapter]):
+    def register(self, provider: ModelProvider, adapter_class: type[BaseLLMAdapter]):
         """注册适配器"""
         self._adapters[provider] = adapter_class
-        log.info(f"Registered adapter: {provider}")
+        log.info(f'Registered adapter: {provider}')
 
     def get_adapter(
-        self,
-        provider: ModelProvider,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        self, provider: ModelProvider, api_key: str | None = None, base_url: str | None = None
     ) -> BaseLLMAdapter:
         """
         获取适配器实例
         支持缓存，相同配置返回相同实例
         """
         # 创建缓存key
-        cache_key = f"{provider}_{api_key}_{base_url}"
+        cache_key = f'{provider}_{api_key}_{base_url}'
 
         # 检查缓存
         if cache_key in self._instances:
@@ -57,7 +51,7 @@ class ModelRegistry:
 
         # 创建新实例
         if provider not in self._adapters:
-            raise ValueError(f"Adapter for {provider} not registered")
+            raise ValueError(f'Adapter for {provider} not registered')
 
         adapter_class = self._adapters[provider]
 
@@ -77,14 +71,14 @@ class ModelRegistry:
         # 这里可以从环境变量或配置文件读取
         # 暂时返回空字符串，实际使用时需要配置
         key_map = {
-            ModelProvider.OPENAI: getattr(settings, "OPENAI_API_KEY", ""),
-            ModelProvider.SILICONFLOW: getattr(settings, "SILICONFLOW_API_KEY", ""),
+            ModelProvider.OPENAI: getattr(settings, 'OPENAI_API_KEY', ''),
+            ModelProvider.SILICONFLOW: getattr(settings, 'SILICONFLOW_API_KEY', ''),
         }
 
-        api_key = key_map.get(provider, "")
+        api_key = key_map.get(provider, '')
         # print('API key是：',api_key)
         if not api_key:
-            raise ValueError(f"API key for {provider} not configured")
+            raise ValueError(f'API key for {provider} not configured')
 
         return api_key
 
@@ -95,7 +89,7 @@ class ModelRegistry:
     async def close_all(self):
         """关闭所有适配器实例"""
         for instance in self._instances.values():
-            if hasattr(instance, "close"):
+            if hasattr(instance, 'close'):
                 await instance.close()
         self._instances.clear()
 

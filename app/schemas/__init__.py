@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @File    : __init__.py
 @Author  : Martin
@@ -6,32 +5,26 @@
 @Desc    :
 """
 
-from app.schemas.user import (
-    UserBase,
-    UserCreate,
-    UserUpdate,
-    UserResponse,
-    UserListResponse,
-)
 from app.schemas.api_key import (
     APIKeyBase,
     APIKeyCreate,
-    APIKeyUpdate,
-    APIKeyResponse,
     APIKeyListItem,
     APIKeyListResponse,
+    APIKeyResponse,
+    APIKeyUpdate,
 )
+from app.schemas.user import UserBase, UserCreate, UserListResponse, UserResponse, UserUpdate
 
 __all__ = [
-    "UserBase",
-    "UserCreate",
-    "UserUpdate",
-    "UserResponse",
-    "UserListResponse",
-    "APIKeyBase",
-    "APIKeyCreate",
-    "APIKeyUpdate",
-    "APIKeyResponse",
-    "APIKeyListItem",
-    "APIKeyListResponse",
+    'UserBase',
+    'UserCreate',
+    'UserUpdate',
+    'UserResponse',
+    'UserListResponse',
+    'APIKeyBase',
+    'APIKeyCreate',
+    'APIKeyUpdate',
+    'APIKeyResponse',
+    'APIKeyListItem',
+    'APIKeyListResponse',
 ]

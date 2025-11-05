@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 @File    : env.py.py
 @Author  : Martin
@@ -7,19 +6,19 @@
 """
 
 import asyncio
+from alembic import context
+from app.core.config import settings
+from app.models import Base
 from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-from alembic import context
-from app.core.config import settings
-from app.models import Base
 
 # Alembic Config对象
 config = context.config
 
 # 设置数据库URL
-config.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
+config.set_main_option('sqlalchemy.url', str(settings.DATABASE_URL))
 
 # 配置日志
 if config.config_file_name is not None:
@@ -31,12 +30,9 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """离线模式运行迁移"""
-    url = config.get_main_option("sqlalchemy.url")
+    url = config.get_main_option('sqlalchemy.url')
     context.configure(
-        url=url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
+        url=url, target_metadata=target_metadata, literal_binds=True, dialect_opts={'paramstyle': 'named'}
     )
 
     with context.begin_transaction():
@@ -53,13 +49,9 @@ def do_run_migrations(connection: Connection) -> None:
 async def run_async_migrations() -> None:
     """异步模式运行迁移"""
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = str(settings.DATABASE_URL)
+    configuration['sqlalchemy.url'] = str(settings.DATABASE_URL)
 
-    connectable = async_engine_from_config(
-        configuration,
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = async_engine_from_config(configuration, prefix='sqlalchemy.', poolclass=pool.NullPool)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
