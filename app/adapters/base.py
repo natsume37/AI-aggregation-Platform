@@ -107,3 +107,6 @@ class BaseLLMAdapter(ABC):
 
         if request.model not in self.get_available_models():
             raise ValueError(f'Model {request.model} not supported')
+class ModelFetchError(Exception):
+    """自定义模型获取报错"""
+    pass

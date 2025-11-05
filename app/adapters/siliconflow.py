@@ -8,7 +8,7 @@
 import httpx
 import json
 import time
-from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelProvider, StreamChunk
+from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelFetchError, ModelProvider, StreamChunk
 from app.core.logging import log
 from app.schemas.chat import ChatCompletionResponse, CompletionTokensDetails, UsageInfo
 from collections.abc import AsyncIterator
@@ -35,16 +35,22 @@ class SiliconFlow(BaseLLMAdapter):
             timeout=60.0,
         )
 
-    def get_model_pricing(self):
-        url = 'https://api.siliconflow.cn/v1/models'
-        headers = {'Authorization': 'Bearer <token>'}
-
-        response = httpx.get(url, headers=headers)
-        print(response.json())
-
     def get_available_models(self) -> list[str]:
         """获取可用模型列表"""
-        return list(self.MODEL_PRICING.keys())
+        """从 SiliconFlow API 实时获取模型列表并打印"""
+        url = f'{self.base_url}/models'
+        headers = {'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'}
+
+        try:
+            response = httpx.get(url, headers=headers, timeout=30.0)
+            response.raise_for_status()
+            data = response.json()
+            model_ids = [item['id'].lower() for item in data['data']]
+            return model_ids
+        except httpx.HTTPStatusError as e:
+            raise ModelFetchError(f'API 请求失败: {e.response.status_code}') from e
+        except Exception as e:
+            raise ModelFetchError(f'未知错误: {str(e)}') from e
 
     def calculate_cost(self, usage: dict[str, int], model: str) -> float:
         """计算成本"""
