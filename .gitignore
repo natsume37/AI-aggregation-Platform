@@ -22,6 +22,10 @@ build/
 # Test
 test\
 
+logs\
+
+alembic\versions\
+
 # Conda
 .conda/
 conda-env/
