@@ -3,8 +3,9 @@
 @File    : user.py.py
 @Author  : Martin
 @Time    : 2025/11/1 22:50
-@Desc    : 
+@Desc    :
 """
+
 from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,16 +20,12 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     async def get_by_email(self, db: AsyncSession, email: str) -> Optional[User]:
         """根据邮箱获取用户"""
-        result = await db.execute(
-            select(User).where(User.email == email)
-        )
+        result = await db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     async def get_by_username(self, db: AsyncSession, username: str) -> Optional[User]:
         """根据用户名获取用户"""
-        result = await db.execute(
-            select(User).where(User.username == username)
-        )
+        result = await db.execute(select(User).where(User.username == username))
         return result.scalar_one_or_none()
 
     async def create(self, db: AsyncSession, obj_in: UserCreate) -> User:
@@ -44,12 +41,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         await db.refresh(db_obj)
         return db_obj
 
-    async def update(
-            self,
-            db: AsyncSession,
-            db_obj: User,
-            obj_in: UserUpdate
-    ) -> User:
+    async def update(self, db: AsyncSession, db_obj: User, obj_in: UserUpdate) -> User:
         """更新用户（重写以处理密码加密）"""
         update_data = obj_in.model_dump(exclude_unset=True)
 
@@ -61,10 +53,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return await super().update(db, db_obj, update_data)
 
     async def authenticate(
-            self,
-            db: AsyncSession,
-            username: str,
-            password: str
+        self, db: AsyncSession, username: str, password: str
     ) -> Optional[User]:
         """验证用户身份"""
         user = await self.get_by_username(db, username)

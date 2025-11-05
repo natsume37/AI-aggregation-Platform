@@ -3,8 +3,9 @@
 @File    : api_keys.py.py
 @Author  : Martin
 @Time    : 2025/11/1 22:54
-@Desc    : 
+@Desc    :
 """
+
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +16,7 @@ from app.schemas.api_key import (
     APIKeyUpdate,
     APIKeyResponse,
     APIKeyListItem,
-    APIKeyListResponse
+    APIKeyListResponse,
 )
 from app.crud.api_key import api_key_crud
 from app.api.deps import get_current_active_user
@@ -28,12 +29,12 @@ router = APIRouter()
     "/",
     response_model=APIKeyResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="创建API密钥"
+    summary="创建API密钥",
 )
 async def create_api_key(
-        api_key_in: APIKeyCreate,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    api_key_in: APIKeyCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     为当前用户创建API密钥
@@ -51,16 +52,12 @@ async def create_api_key(
     return api_key
 
 
-@router.get(
-    "/",
-    response_model=APIKeyListResponse,
-    summary="获取API密钥列表"
-)
+@router.get("/", response_model=APIKeyListResponse, summary="获取API密钥列表")
 async def list_api_keys(
-        skip: int = Query(0, ge=0, description="跳过的记录数"),
-        limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    skip: int = Query(0, ge=0, description="跳过的记录数"),
+    limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     获取当前用户的API密钥列表
@@ -70,10 +67,7 @@ async def list_api_keys(
     - **limit**: 返回的记录数（最大100）
     """
     api_keys = await api_key_crud.get_by_user(
-        db,
-        user_id=current_user.id,
-        skip=skip,
-        limit=limit
+        db, user_id=current_user.id, skip=skip, limit=limit
     )
 
     # 转换为列表项，隐藏完整密钥
@@ -85,7 +79,7 @@ async def list_api_keys(
             is_active=key.is_active,
             expires_at=key.expires_at,
             last_used_at=key.last_used_at,
-            created_at=key.created_at
+            created_at=key.created_at,
         )
         for key in api_keys
     ]
@@ -93,15 +87,11 @@ async def list_api_keys(
     return APIKeyListResponse(total=len(items), items=items)
 
 
-@router.get(
-    "/{api_key_id}",
-    response_model=APIKeyListItem,
-    summary="获取API密钥详情"
-)
+@router.get("/{api_key_id}", response_model=APIKeyListItem, summary="获取API密钥详情")
 async def get_api_key(
-        api_key_id: int,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    api_key_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     获取指定API密钥详情
@@ -113,16 +103,14 @@ async def get_api_key(
 
     if not api_key:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="API key not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
         )
 
     # 检查权限
     if api_key.user_id != current_user.id:
         log.warning(f"Unauthorized API key access: {current_user.id} -> {api_key_id}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough privileges"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges"
         )
 
     return APIKeyListItem(
@@ -132,20 +120,16 @@ async def get_api_key(
         is_active=api_key.is_active,
         expires_at=api_key.expires_at,
         last_used_at=api_key.last_used_at,
-        created_at=api_key.created_at
+        created_at=api_key.created_at,
     )
 
 
-@router.patch(
-    "/{api_key_id}",
-    response_model=APIKeyListItem,
-    summary="更新API密钥"
-)
+@router.patch("/{api_key_id}", response_model=APIKeyListItem, summary="更新API密钥")
 async def update_api_key(
-        api_key_id: int,
-        api_key_in: APIKeyUpdate,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    api_key_id: int,
+    api_key_in: APIKeyUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     更新API密钥信息
@@ -157,16 +141,14 @@ async def update_api_key(
 
     if not api_key:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="API key not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
         )
 
     # 检查权限
     if api_key.user_id != current_user.id:
         log.warning(f"Unauthorized API key update: {current_user.id} -> {api_key_id}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough privileges"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges"
         )
 
     api_key = await api_key_crud.update(db, api_key, api_key_in)
@@ -181,19 +163,17 @@ async def update_api_key(
         is_active=api_key.is_active,
         expires_at=api_key.expires_at,
         last_used_at=api_key.last_used_at,
-        created_at=api_key.created_at
+        created_at=api_key.created_at,
     )
 
 
 @router.delete(
-    "/{api_key_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="删除API密钥"
+    "/{api_key_id}", status_code=status.HTTP_204_NO_CONTENT, summary="删除API密钥"
 )
 async def delete_api_key(
-        api_key_id: int,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    api_key_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     删除API密钥
@@ -204,16 +184,14 @@ async def delete_api_key(
 
     if not api_key:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="API key not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
         )
 
     # 检查权限
     if api_key.user_id != current_user.id:
         log.warning(f"Unauthorized API key deletion: {current_user.id} -> {api_key_id}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough privileges"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges"
         )
 
     await api_key_crud.delete(db, api_key_id)
@@ -224,14 +202,12 @@ async def delete_api_key(
 
 
 @router.post(
-    "/{api_key_id}/deactivate",
-    response_model=APIKeyListItem,
-    summary="停用API密钥"
+    "/{api_key_id}/deactivate", response_model=APIKeyListItem, summary="停用API密钥"
 )
 async def deactivate_api_key(
-        api_key_id: int,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    api_key_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     停用API密钥
@@ -243,16 +219,16 @@ async def deactivate_api_key(
 
     if not api_key:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="API key not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="API key not found"
         )
 
     # 检查权限
     if api_key.user_id != current_user.id:
-        log.warning(f"Unauthorized API key deactivation: {current_user.id} -> {api_key_id}")
+        log.warning(
+            f"Unauthorized API key deactivation: {current_user.id} -> {api_key_id}"
+        )
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough privileges"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges"
         )
 
     api_key = await api_key_crud.deactivate(db, api_key)
@@ -267,5 +243,5 @@ async def deactivate_api_key(
         is_active=api_key.is_active,
         expires_at=api_key.expires_at,
         last_used_at=api_key.last_used_at,
-        created_at=api_key.created_at
+        created_at=api_key.created_at,
     )

@@ -3,8 +3,9 @@
 @File    : api_key.py.py
 @Author  : Martin
 @Time    : 2025/11/1 22:51
-@Desc    : 
+@Desc    :
 """
+
 import secrets
 from typing import Optional, List
 from datetime import datetime
@@ -25,37 +26,22 @@ class CRUDAPIKey(CRUDBase[APIKey, APIKeyCreate, APIKeyUpdate]):
 
     async def get_by_key(self, db: AsyncSession, key: str) -> Optional[APIKey]:
         """根据密钥获取记录"""
-        result = await db.execute(
-            select(APIKey).where(APIKey.key == key)
-        )
+        result = await db.execute(select(APIKey).where(APIKey.key == key))
         return result.scalar_one_or_none()
 
     async def get_by_user(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            skip: int = 0,
-            limit: int = 100
+        self, db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
     ) -> List[APIKey]:
         """获取用户的所有密钥"""
         result = await db.execute(
-            select(APIKey)
-            .where(APIKey.user_id == user_id)
-            .offset(skip)
-            .limit(limit)
+            select(APIKey).where(APIKey.user_id == user_id).offset(skip).limit(limit)
         )
         return list(result.scalars().all())
-    async def get_active_by_key(
-            self,
-            db: AsyncSession,
-            key: str
-    ) -> Optional[APIKey]:
+
+    async def get_active_by_key(self, db: AsyncSession, key: str) -> Optional[APIKey]:
         """获取有效的API密钥（检查是否激活和过期）"""
         result = await db.execute(
-            select(APIKey).where(
-                APIKey.key == key,
-                APIKey.is_active == True
-            )
+            select(APIKey).where(APIKey.key == key, APIKey.is_active == True)
         )
         api_key = result.scalar_one_or_none()
 
@@ -66,10 +52,7 @@ class CRUDAPIKey(CRUDBase[APIKey, APIKeyCreate, APIKeyUpdate]):
         return api_key
 
     async def create_for_user(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            obj_in: APIKeyCreate
+        self, db: AsyncSession, user_id: int, obj_in: APIKeyCreate
     ) -> APIKey:
         """为用户创建API密钥"""
         api_key = self.generate_key()
@@ -87,11 +70,7 @@ class CRUDAPIKey(CRUDBase[APIKey, APIKeyCreate, APIKeyUpdate]):
         await db.refresh(db_obj)
         return db_obj
 
-    async def update_last_used(
-            self,
-            db: AsyncSession,
-            api_key: APIKey
-    ) -> APIKey:
+    async def update_last_used(self, db: AsyncSession, api_key: APIKey) -> APIKey:
         """更新最后使用时间"""
         api_key.last_used_at = datetime.now(api_key.created_at.tzinfo)
         db.add(api_key)
@@ -99,11 +78,7 @@ class CRUDAPIKey(CRUDBase[APIKey, APIKeyCreate, APIKeyUpdate]):
         await db.refresh(api_key)
         return api_key
 
-    async def deactivate(
-            self,
-            db: AsyncSession,
-            api_key: APIKey
-    ) -> APIKey:
+    async def deactivate(self, db: AsyncSession, api_key: APIKey) -> APIKey:
         """停用API密钥"""
         api_key.is_active = False
         db.add(api_key)

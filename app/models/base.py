@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
 
 class Base(DeclarativeBase):
     """基础模型类"""
+
     pass
 
 
@@ -16,7 +17,7 @@ class TimestampMixin:
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
-        comment="创建时间"
+        comment="创建时间",
     )
 
     updated_at: Mapped[datetime] = mapped_column(
@@ -24,7 +25,7 @@ class TimestampMixin:
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
-        comment="更新时间"
+        comment="更新时间",
     )
 
 
@@ -33,11 +34,11 @@ class BaseModel(Base, TimestampMixin):
     基础模型
     所有模型都应该继承此类
     """
+
     __abstract__ = True
 
     def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
-            column.name: getattr(self, column.name)
-            for column in self.__table__.columns
+            column.name: getattr(self, column.name) for column in self.__table__.columns
         }

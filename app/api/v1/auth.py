@@ -3,8 +3,9 @@
 @File    : auth.py.py
 @Author  : Martin
 @Time    : 2025/11/1 23:51
-@Desc    : 
+@Desc    :
 """
+
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,12 +24,9 @@ router = APIRouter()
     "/register",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="注册新用户"
+    summary="注册新用户",
 )
-async def register(
-        user_in: UserCreate,
-        db: AsyncSession = Depends(get_db)
-):
+async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     """
     注册新用户
 
@@ -43,7 +41,7 @@ async def register(
         log.warning(f"Username already exists: {user_in.username}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
+            detail="Username already registered",
         )
 
     # 检查邮箱是否已存在
@@ -51,8 +49,7 @@ async def register(
     if existing_email:
         log.warning(f"Email already exists: {user_in.email}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
     # 创建用户
@@ -63,15 +60,8 @@ async def register(
     return user
 
 
-@router.post(
-    "/login",
-    response_model=Token,
-    summary="用户登录"
-)
-async def login(
-        login_data: LoginRequest,
-        db: AsyncSession = Depends(get_db)
-):
+@router.post("/login", response_model=Token, summary="用户登录")
+async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
     用户登录，返回访问令牌
 
@@ -80,9 +70,7 @@ async def login(
     """
     # 验证用户
     user = await user_crud.authenticate(
-        db,
-        username=login_data.username,
-        password=login_data.password
+        db, username=login_data.username, password=login_data.password
     )
 
     if not user:
@@ -96,15 +84,14 @@ async def login(
     if not user.is_active:
         log.warning(f"Inactive user login attempt: {user.id}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
         )
 
     # 创建访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user.id), "username": user.username},
-        expires_delta=access_token_expires
+        expires_delta=access_token_expires,
     )
 
     log.info(f"User logged in: {user.id} - {user.username}")

@@ -3,8 +3,9 @@
 @File    : main.py
 @Author  : Martin
 @Time    : 2025/11/1 22:38
-@Desc    : 
+@Desc    :
 """
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,7 @@ from app.api.v1 import api_router
 from sqlalchemy import text
 import asyncio
 import sys
+
 
 # ==================== 新增：数据库健康检查函数 ====================
 async def check_db_connection() -> bool:
@@ -28,6 +30,8 @@ async def check_db_connection() -> bool:
     except Exception as e:
         log.error(f"数据库连接失败: {e}")
         return False
+
+
 # =====================================================================
 
 
@@ -60,7 +64,7 @@ app = FastAPI(
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
     openapi_url="/openapi.json" if settings.DEBUG else None,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS配置
@@ -83,7 +87,7 @@ async def root():
         "message": f"Welcome to {settings.APP_NAME}",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
-        "docs": "/docs" if settings.DEBUG else "disabled"
+        "docs": "/docs" if settings.DEBUG else "disabled",
     }
 
 
@@ -96,8 +100,10 @@ async def health_check():
         "status": "healthy" if db_status == "connected" else "unhealthy",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
-        "database": db_status
+        "database": db_status,
     }
+
+
 # =================================================================
 
 
@@ -109,5 +115,5 @@ if __name__ == "__main__":
         host=settings.HOST,
         port=settings.PORT,
         reload=settings.DEBUG,
-        log_level=settings.LOG_LEVEL.lower()
+        log_level=settings.LOG_LEVEL.lower(),
     )

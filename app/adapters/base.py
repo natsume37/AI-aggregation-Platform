@@ -3,8 +3,9 @@
 @File    : base.py
 @Author  : Martin
 @Time    : 2025/11/4 11:11
-@Desc    : 
+@Desc    :
 """
+
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, Optional, Dict, Any, List
 from enum import Enum
@@ -13,16 +14,17 @@ from pydantic import BaseModel
 
 class ModelProvider(str, Enum):
     """模型供应商"""
+
     OPENAI = "openai"
     CLAUDE = "claude"
     ZHIPU = "zhipu"
     QWEN = "qwen"
-    SILICONFLOW = 'siliconflow'
-
+    SILICONFLOW = "siliconflow"
 
 
 class ChatMessage(BaseModel):
     """聊天消息"""
+
     role: str  # system, user, assistant
     content: str
     name: Optional[str] = None
@@ -30,6 +32,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """聊天请求"""
+
     model: str
     messages: List[ChatMessage]
     temperature: float = 0.7
@@ -42,6 +45,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     """聊天响应"""
+
     id: str
     model: str
     content: str
@@ -52,6 +56,7 @@ class ChatResponse(BaseModel):
 
 class StreamChunk(BaseModel):
     """流式响应块"""
+
     content: str
     finish_reason: Optional[str] = None
 

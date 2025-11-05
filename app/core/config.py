@@ -5,18 +5,22 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """应用配置类"""
+
     # OpenAI配置
     OPENAI_API_KEY: str = Field(default="", description="OpenAI API密钥")
-    OPENAI_BASE_URL: Optional[str] = Field(default=None, description="OpenAI API基础URL")
+    OPENAI_BASE_URL: Optional[str] = Field(
+        default=None, description="OpenAI API基础URL"
+    )
     # 硅基流动配置
     SILICONFLOW_API_KEY: str = Field(default="", description="OpenAI API密钥")
-    SILICONFLOW_BASE_URL: Optional[str] = Field(default=None, description="OpenAI API基础URL")
+    SILICONFLOW_BASE_URL: Optional[str] = Field(
+        default=None, description="OpenAI API基础URL"
+    )
     # 应用基础配置
     APP_NAME: str = Field(default="FastAPI AI Backend", description="应用名称")
     APP_VERSION: str = Field(default="1.0.0", description="应用版本")
     ENVIRONMENT: Literal["development", "staging", "production"] = Field(
-        default="development",
-        description="运行环境"
+        default="development", description="运行环境"
     )
     DEBUG: bool = Field(default=False, description="调试模式")
 
@@ -25,9 +29,7 @@ class Settings(BaseSettings):
     PORT: int = Field(default=8000, description="服务器端口")
 
     # 数据库配置
-    DATABASE_URL: PostgresDsn = Field(
-        description="数据库连接URL"
-    )
+    DATABASE_URL: PostgresDsn = Field(description="数据库连接URL")
     DATABASE_POOL_SIZE: int = Field(default=20, description="数据库连接池大小")
     DATABASE_MAX_OVERFLOW: int = Field(default=10, description="数据库最大溢出连接")
 
@@ -39,16 +41,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(description="JWT密钥")
     ALGORITHM: str = Field(default="HS256", description="JWT算法")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        default=30,
-        description="访问令牌过期时间(分钟)"
+        default=30, description="访问令牌过期时间(分钟)"
     )
 
     # Pydantic配置
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=True,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
     )
 
     @field_validator("DATABASE_URL", mode="before")
@@ -78,19 +76,21 @@ class Settings(BaseSettings):
 # 根据环境加载不同配置文件
 def get_settings() -> Settings:
     import os
+
     env = os.getenv("ENVIRONMENT", "development")
     print(f"[DEBUG] 系统环境变量 ENVIRONMENT = {os.getenv('ENVIRONMENT')}")
 
     env_file_map = {
         "development": ".env.dev",
         "staging": ".env.staging",
-        "production": ".env.prod"
+        "production": ".env.prod",
     }
     env_file = env_file_map.get(env, ".env")
     print(f"[DEBUG] 即将加载配置文件: {env_file}")
 
     # 强制打印文件是否存在
     import pathlib
+
     file_path = pathlib.Path(env_file)
     print(f"[DEBUG] 文件是否存在？: {file_path.exists()} -> {file_path.resolve()}")
 

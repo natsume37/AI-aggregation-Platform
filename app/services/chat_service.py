@@ -3,16 +3,13 @@
 @File    : chat_service.py.py
 @Author  : Martin
 @Time    : 2025/11/4 11:20
-@Desc    : 
+@Desc    :
 """
+
 import time
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.adapters.base import (
-    ChatRequest,
-    ChatMessage,
-    ModelProvider
-)
+from app.adapters.base import ChatRequest, ChatMessage, ModelProvider
 from app.adapters.model_registry import model_registry
 from app.crud.conversation import conversation_crud, ConversationCreate
 from app.crud.usage_log import usage_log_crud, UsageLogCreate
@@ -25,14 +22,14 @@ class ChatService:
     """聊天服务"""
 
     async def chat(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            model: str,
-            messages: List[ChatMessage],
-            conversation_id: Optional[int] = None,
-            save_conversation: bool = True,
-            **kwargs
+        self,
+        db: AsyncSession,
+        user_id: int,
+        model: str,
+        messages: List[ChatMessage],
+        conversation_id: Optional[int] = None,
+        save_conversation: bool = True,
+        **kwargs,
     ) -> dict:
         """
         执行聊天
@@ -84,10 +81,7 @@ class ChatService:
 
         # 4. 构建请求
         chat_request = ChatRequest(
-            model=model,
-            messages=all_messages,
-            stream=False,
-            **kwargs
+            model=model, messages=all_messages, stream=False, **kwargs
         )
 
         # 5. 调用AI模型
@@ -123,7 +117,7 @@ class ChatService:
                 conversation.id,
                 "assistant",
                 response.content,
-                response.usage["completion_tokens"]
+                response.usage["completion_tokens"],
             )
 
         # 9. 记录使用情况
@@ -135,7 +129,7 @@ class ChatService:
             provider.value,
             response.usage,
             cost,
-            response_time
+            response_time,
         )
 
         # 10. 提交事务
@@ -151,18 +145,18 @@ class ChatService:
             "finish_reason": response.finish_reason,
             "usage": response.usage,
             "cost": cost,
-            "response_time": response_time
+            "response_time": response_time,
         }
 
     async def chat_stream(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            model: str,
-            messages: List[ChatMessage],
-            conversation_id: Optional[int] = None,
-            save_conversation: bool = True,
-            **kwargs
+        self,
+        db: AsyncSession,
+        user_id: int,
+        model: str,
+        messages: List[ChatMessage],
+        conversation_id: Optional[int] = None,
+        save_conversation: bool = True,
+        **kwargs,
     ):
         """
         流式聊天
@@ -199,10 +193,7 @@ class ChatService:
 
         # 3. 构建请求
         chat_request = ChatRequest(
-            model=model,
-            messages=all_messages,
-            stream=True,
-            **kwargs
+            model=model, messages=all_messages, stream=True, **kwargs
         )
 
         # 4. 流式调用
@@ -217,10 +208,7 @@ class ChatService:
                     finish_reason = chunk.finish_reason
 
                 # 生成流式数据
-                yield {
-                    "content": chunk.content,
-                    "finish_reason": chunk.finish_reason
-                }
+                yield {"content": chunk.content, "finish_reason": chunk.finish_reason}
 
         except Exception as e:
             log.error(f"Streaming error: {str(e)}")
@@ -237,7 +225,7 @@ class ChatService:
         usage = {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens
+            "total_tokens": total_tokens,
         }
 
         cost = adapter.calculate_cost(usage, model)
@@ -266,7 +254,7 @@ class ChatService:
             provider.value,
             usage,
             cost,
-            response_time
+            response_time,
         )
 
         await db.commit()
@@ -277,7 +265,7 @@ class ChatService:
             "conversation_id": conversation.id if conversation else None,
             "usage": usage,
             "cost": cost,
-            "response_time": response_time
+            "response_time": response_time,
         }
 
     def _get_provider_from_model(self, model: str) -> ModelProvider:
@@ -286,9 +274,18 @@ class ChatService:
             return ModelProvider.OPENAI
         elif "claude" in model.lower():
             return ModelProvider.CLAUDE
-        elif any(keyword in model.lower()for keyword in [
-            "qwen", "deepseek", "glm", "llama", "sflow", "silicon", "siliconflow"
-        ]):
+        elif any(
+            keyword in model.lower()
+            for keyword in [
+                "qwen",
+                "deepseek",
+                "glm",
+                "llama",
+                "sflow",
+                "silicon",
+                "siliconflow",
+            ]
+        ):
             return ModelProvider.SILICONFLOW
         # 添加更多判断...
 
@@ -296,19 +293,19 @@ class ChatService:
         return ModelProvider.OPENAI
 
     async def _create_conversation(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            model: str,
-            provider: ModelProvider,
-            title: str
+        self,
+        db: AsyncSession,
+        user_id: int,
+        model: str,
+        provider: ModelProvider,
+        title: str,
     ) -> Conversation:
         """创建新对话"""
         conversation_data = ConversationCreate(
             user_id=user_id,
             title=title or "New Conversation",
             model_name=model,
-            provider=provider.value
+            provider=provider.value,
         )
 
         conversation = await conversation_crud.create(db, conversation_data)
@@ -318,15 +315,15 @@ class ChatService:
         return conversation
 
     async def _log_usage(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            conversation_id: Optional[int],
-            model: str,
-            provider: str,
-            usage: dict,
-            cost: float,
-            response_time: float
+        self,
+        db: AsyncSession,
+        user_id: int,
+        conversation_id: Optional[int],
+        model: str,
+        provider: str,
+        usage: dict,
+        cost: float,
+        response_time: float,
     ):
         """记录使用情况"""
         log_data = UsageLogCreate(
@@ -338,7 +335,7 @@ class ChatService:
             completion_tokens=usage["completion_tokens"],
             total_tokens=usage["total_tokens"],
             cost=cost,
-            response_time=response_time
+            response_time=response_time,
         )
 
         await usage_log_crud.create(db, log_data)

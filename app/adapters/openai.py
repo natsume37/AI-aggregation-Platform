@@ -3,8 +3,9 @@
 @File    : openai.py
 @Author  : Martin
 @Time    : 2025/11/4 11:12
-@Desc    : 
+@Desc    :
 """
+
 from typing import AsyncIterator, List, Dict, Optional
 import httpx
 import json
@@ -14,7 +15,7 @@ from app.adapters.base import (
     ChatResponse,
     StreamChunk,
     ModelProvider,
-    ChatMessage
+    ChatMessage,
 )
 from app.core.logging import log
 
@@ -38,9 +39,9 @@ class OpenAIAdapter(BaseLLMAdapter):
             base_url=self.base_url,
             headers={
                 "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            timeout=60.0
+            timeout=60.0,
         )
 
     def get_available_models(self) -> List[str]:
@@ -54,7 +55,9 @@ class OpenAIAdapter(BaseLLMAdapter):
 
         pricing = self.MODEL_PRICING[model]
         prompt_cost = (usage.get("prompt_tokens", 0) / 1000) * pricing["prompt"]
-        completion_cost = (usage.get("completion_tokens", 0) / 1000) * pricing["completion"]
+        completion_cost = (usage.get("completion_tokens", 0) / 1000) * pricing[
+            "completion"
+        ]
 
         return prompt_cost + completion_cost
 
@@ -70,7 +73,7 @@ class OpenAIAdapter(BaseLLMAdapter):
             "top_p": request.top_p,
             "frequency_penalty": request.frequency_penalty,
             "presence_penalty": request.presence_penalty,
-            "stream": False
+            "stream": False,
         }
 
         if request.max_tokens:
@@ -91,7 +94,7 @@ class OpenAIAdapter(BaseLLMAdapter):
                 content=message["content"],
                 finish_reason=choice["finish_reason"],
                 usage=data["usage"],
-                provider=self.provider
+                provider=self.provider,
             )
 
         except httpx.HTTPStatusError as e:
@@ -113,14 +116,16 @@ class OpenAIAdapter(BaseLLMAdapter):
             "top_p": request.top_p,
             "frequency_penalty": request.frequency_penalty,
             "presence_penalty": request.presence_penalty,
-            "stream": True
+            "stream": True,
         }
 
         if request.max_tokens:
             payload["max_tokens"] = request.max_tokens
 
         try:
-            async with self.client.stream("POST", "/chat/completions", json=payload) as response:
+            async with self.client.stream(
+                "POST", "/chat/completions", json=payload
+            ) as response:
                 response.raise_for_status()
 
                 async for line in response.aiter_lines():
@@ -140,14 +145,12 @@ class OpenAIAdapter(BaseLLMAdapter):
 
                             if "content" in delta:
                                 yield StreamChunk(
-                                    content=delta["content"],
-                                    finish_reason=None
+                                    content=delta["content"], finish_reason=None
                                 )
 
                             if choice.get("finish_reason"):
                                 yield StreamChunk(
-                                    content="",
-                                    finish_reason=choice["finish_reason"]
+                                    content="", finish_reason=choice["finish_reason"]
                                 )
 
                         except json.JSONDecodeError:

@@ -3,8 +3,9 @@
 @File    : __init__.py
 @Author  : Martin
 @Time    : 2025/11/1 22:50
-@Desc    : 
+@Desc    :
 """
+
 from app.models.base import Base, BaseModel, TimestampMixin
 from app.models.user import User
 from app.models.api_key import APIKey

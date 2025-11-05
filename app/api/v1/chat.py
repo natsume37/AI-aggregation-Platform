@@ -3,8 +3,9 @@
 @File    : chat.py
 @Author  : Martin
 @Time    : 2025/11/4 11:11
-@Desc    : 
+@Desc    :
 """
+
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
@@ -19,7 +20,7 @@ from app.schemas.chat import (
     ConversationDetailResponse,
     ConversationListResponse,
     AvailableModelsResponse,
-    UsageInfo
+    UsageInfo,
 )
 from app.services.chat_service import chat_service
 from app.crud.conversation import conversation_crud
@@ -35,14 +36,12 @@ router = APIRouter()
 
 
 @router.post(
-    "/completions",
-    response_model=ChatCompletionResponse,
-    summary="聊天完成（非流式）"
+    "/completions", response_model=ChatCompletionResponse, summary="聊天完成（非流式）"
 )
 async def create_chat_completion(
-        request: ChatCompletionRequest,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    request: ChatCompletionRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     创建聊天完成
@@ -56,14 +55,13 @@ async def create_chat_completion(
     if request.stream:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Use /chat/stream for streaming responses"
+            detail="Use /chat/stream for streaming responses",
         )
 
     try:
         # 转换消息格式
         messages = [
-            ChatMessage(role=msg.role, content=msg.content)
-            for msg in request.messages
+            ChatMessage(role=msg.role, content=msg.content) for msg in request.messages
         ]
 
         # 调用聊天服务
@@ -78,7 +76,7 @@ async def create_chat_completion(
             max_tokens=request.max_tokens,
             top_p=request.top_p,
             frequency_penalty=request.frequency_penalty,
-            presence_penalty=request.presence_penalty
+            presence_penalty=request.presence_penalty,
         )
 
         # 构建响应
@@ -92,30 +90,24 @@ async def create_chat_completion(
             usage=UsageInfo(**result["usage"]),
             cost=result["cost"],
             response_time=result["response_time"],
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         log.error(f"Chat completion error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to complete chat"
+            detail="Failed to complete chat",
         )
 
 
-@router.post(
-    "/stream",
-    summary="聊天完成（流式）"
-)
+@router.post("/stream", summary="聊天完成（流式）")
 async def create_chat_completion_stream(
-        request: ChatCompletionRequest,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    request: ChatCompletionRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     创建流式聊天完成
@@ -125,25 +117,24 @@ async def create_chat_completion_stream(
     try:
         # 转换消息格式
         messages = [
-            ChatMessage(role=msg.role, content=msg.content)
-            for msg in request.messages
+            ChatMessage(role=msg.role, content=msg.content) for msg in request.messages
         ]
 
         async def generate():
             """生成SSE流"""
             try:
                 async for chunk in chat_service.chat_stream(
-                        db=db,
-                        user_id=current_user.id,
-                        model=request.model,
-                        messages=messages,
-                        conversation_id=request.conversation_id,
-                        save_conversation=request.save_conversation,
-                        temperature=request.temperature,
-                        max_tokens=request.max_tokens,
-                        top_p=request.top_p,
-                        frequency_penalty=request.frequency_penalty,
-                        presence_penalty=request.presence_penalty
+                    db=db,
+                    user_id=current_user.id,
+                    model=request.model,
+                    messages=messages,
+                    conversation_id=request.conversation_id,
+                    save_conversation=request.save_conversation,
+                    temperature=request.temperature,
+                    max_tokens=request.max_tokens,
+                    top_p=request.top_p,
+                    frequency_penalty=request.frequency_penalty,
+                    presence_penalty=request.presence_penalty,
                 ):
                     # 发送SSE格式数据
                     yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
@@ -162,27 +153,25 @@ async def create_chat_completion_stream(
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
-            }
+            },
         )
 
     except Exception as e:
         log.error(f"Stream initialization error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to initialize stream"
+            detail="Failed to initialize stream",
         )
 
 
 @router.get(
-    "/conversations",
-    response_model=ConversationListResponse,
-    summary="获取对话列表"
+    "/conversations", response_model=ConversationListResponse, summary="获取对话列表"
 )
 async def list_conversations(
-        skip: int = Query(0, ge=0, description="跳过的记录数"),
-        limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    skip: int = Query(0, ge=0, description="跳过的记录数"),
+    limit: int = Query(100, ge=1, le=100, description="返回的记录数"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """获取当前用户的对话列表"""
     conversations = await conversation_crud.get_by_user(
@@ -203,7 +192,7 @@ async def list_conversations(
                 provider=conv.provider,
                 message_count=len(messages),
                 created_at=conv.created_at,
-                updated_at=conv.updated_at
+                updated_at=conv.updated_at,
             )
         )
 
@@ -213,12 +202,12 @@ async def list_conversations(
 @router.get(
     "/conversations/{conversation_id}",
     response_model=ConversationDetailResponse,
-    summary="获取对话详情"
+    summary="获取对话详情",
 )
 async def get_conversation(
-        conversation_id: int,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    conversation_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """获取对话详情（包含所有消息）"""
     conversation = await conversation_crud.get_with_messages(
@@ -227,8 +216,7 @@ async def get_conversation(
 
     if not conversation:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Conversation not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
         )
 
     return ConversationDetailResponse(
@@ -239,33 +227,31 @@ async def get_conversation(
         message_count=len(conversation.messages),
         created_at=conversation.created_at,
         updated_at=conversation.updated_at,
-        messages=conversation.messages
+        messages=conversation.messages,
     )
 
 
 @router.delete(
     "/conversations/{conversation_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="删除对话"
+    summary="删除对话",
 )
 async def delete_conversation(
-        conversation_id: int,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    conversation_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """删除对话（会级联删除所有消息）"""
     conversation = await conversation_crud.get(db, conversation_id)
 
     if not conversation:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Conversation not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found"
         )
 
     if conversation.user_id != current_user.id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough privileges"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges"
         )
 
     await conversation_crud.delete(db, conversation_id)
@@ -276,13 +262,9 @@ async def delete_conversation(
 
 
 @router.get(
-    "/models",
-    response_model=List[AvailableModelsResponse],
-    summary="获取可用模型列表"
+    "/models", response_model=List[AvailableModelsResponse], summary="获取可用模型列表"
 )
-async def list_available_models(
-        current_user: User = Depends(get_current_active_user)
-):
+async def list_available_models(current_user: User = Depends(get_current_active_user)):
     """获取所有可用的AI模型"""
     providers = model_registry.get_available_providers()
 
@@ -293,10 +275,7 @@ async def list_available_models(
             models = adapter.get_available_models()
 
             result.append(
-                AvailableModelsResponse(
-                    provider=provider.value,
-                    models=models
-                )
+                AvailableModelsResponse(provider=provider.value, models=models)
             )
         except Exception as e:
             log.warning(f"Failed to get models for {provider}: {str(e)}")

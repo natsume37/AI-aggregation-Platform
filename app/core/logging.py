@@ -3,8 +3,9 @@
 @File    : logging.py.py
 @Author  : Martin
 @Time    : 2025/11/1 22:47
-@Desc    : 
+@Desc    :
 """
+
 import sys
 from pathlib import Path
 from loguru import logger
@@ -40,7 +41,7 @@ def setup_logging():
         level=settings.LOG_LEVEL,
         colorize=True,
         backtrace=True,
-        diagnose=True
+        diagnose=True,
     )
 
     # 创建日志目录
@@ -55,7 +56,7 @@ def setup_logging():
         rotation="00:00",  # 每天轮转
         retention="30 days",  # 保留30天
         compression="zip",  # 压缩
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     # 添加错误日志文件处理器
@@ -66,10 +67,12 @@ def setup_logging():
         rotation="00:00",
         retention="90 days",  # 错误日志保留更久
         compression="zip",
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
-    logger.info(f"Logging initialized - Level: {settings.LOG_LEVEL}, Environment: {settings.ENVIRONMENT}")
+    logger.info(
+        f"Logging initialized - Level: {settings.LOG_LEVEL}, Environment: {settings.ENVIRONMENT}"
+    )
 
     return logger
 

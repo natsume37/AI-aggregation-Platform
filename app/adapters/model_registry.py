@@ -3,8 +3,9 @@
 @File    : model_registry.py.py
 @Author  : Martin
 @Time    : 2025/11/4 11:14
-@Desc    : 
+@Desc    :
 """
+
 from typing import Dict, Type, Optional
 from app.adapters.base import BaseLLMAdapter, ModelProvider
 from app.adapters.openai import OpenAIAdapter
@@ -38,10 +39,10 @@ class ModelRegistry:
         log.info(f"Registered adapter: {provider}")
 
     def get_adapter(
-            self,
-            provider: ModelProvider,
-            api_key: Optional[str] = None,
-            base_url: Optional[str] = None
+        self,
+        provider: ModelProvider,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
     ) -> BaseLLMAdapter:
         """
         获取适配器实例
@@ -94,7 +95,7 @@ class ModelRegistry:
     async def close_all(self):
         """关闭所有适配器实例"""
         for instance in self._instances.values():
-            if hasattr(instance, 'close'):
+            if hasattr(instance, "close"):
                 await instance.close()
         self._instances.clear()
 

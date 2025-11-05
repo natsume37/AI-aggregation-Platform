@@ -3,8 +3,9 @@
 @File    : conversation.py.py
 @Author  : Martin
 @Time    : 2025/11/4 11:19
-@Desc    : 
+@Desc    :
 """
+
 from typing import Optional, List
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -17,6 +18,7 @@ from app.models.message import Message
 
 class ConversationCreate(BaseModel):
     """创建对话Schema"""
+
     user_id: int
     title: str
     model_name: str
@@ -27,11 +29,7 @@ class ConversationCRUD(CRUDBase[Conversation, ConversationCreate, BaseModel]):
     """对话CRUD操作"""
 
     async def get_by_user(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            skip: int = 0,
-            limit: int = 100
+        self, db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
     ) -> List[Conversation]:
         """获取用户的对话列表"""
         result = await db.execute(
@@ -44,15 +42,14 @@ class ConversationCRUD(CRUDBase[Conversation, ConversationCreate, BaseModel]):
         return list(result.scalars().all())
 
     async def get_with_messages(
-            self,
-            db: AsyncSession,
-            conversation_id: int,
-            user_id: Optional[int] = None
+        self, db: AsyncSession, conversation_id: int, user_id: Optional[int] = None
     ) -> Optional[Conversation]:
         """获取对话及其消息"""
-        query = select(Conversation).options(
-            selectinload(Conversation.messages)
-        ).where(Conversation.id == conversation_id)
+        query = (
+            select(Conversation)
+            .options(selectinload(Conversation.messages))
+            .where(Conversation.id == conversation_id)
+        )
 
         if user_id:
             query = query.where(Conversation.user_id == user_id)
@@ -70,19 +67,16 @@ class ConversationCRUD(CRUDBase[Conversation, ConversationCreate, BaseModel]):
         return result.scalar_one()
 
     async def add_message(
-            self,
-            db: AsyncSession,
-            conversation_id: int,
-            role: str,
-            content: str,
-            tokens: int = 0
+        self,
+        db: AsyncSession,
+        conversation_id: int,
+        role: str,
+        content: str,
+        tokens: int = 0,
     ) -> Message:
         """添加消息到对话"""
         message = Message(
-            conversation_id=conversation_id,
-            role=role,
-            content=content,
-            tokens=tokens
+            conversation_id=conversation_id, role=role, content=content, tokens=tokens
         )
         db.add(message)
         await db.flush()
@@ -90,15 +84,14 @@ class ConversationCRUD(CRUDBase[Conversation, ConversationCreate, BaseModel]):
         return message
 
     async def get_messages(
-            self,
-            db: AsyncSession,
-            conversation_id: int,
-            limit: Optional[int] = None
+        self, db: AsyncSession, conversation_id: int, limit: Optional[int] = None
     ) -> List[Message]:
         """获取对话消息"""
-        query = select(Message).where(
-            Message.conversation_id == conversation_id
-        ).order_by(Message.created_at.asc())
+        query = (
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.asc())
+        )
 
         if limit:
             query = query.limit(limit)

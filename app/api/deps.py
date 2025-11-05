@@ -3,8 +3,9 @@
 @File    : deps.py.py
 @Author  : Martin
 @Time    : 2025/11/1 22:53
-@Desc    : 
+@Desc    :
 """
+
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -23,8 +24,8 @@ security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-        db: AsyncSession = Depends(get_db)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     从JWT token获取当前用户
@@ -43,9 +44,7 @@ async def get_current_user(
     try:
         # 解码JWT
         payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         user_id: int = payload.get("sub")
         if user_id is None:
@@ -63,41 +62,38 @@ async def get_current_user(
     if not user.is_active:
         log.warning(f"Inactive user attempted access: {user_id}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
         )
 
     return user
 
 
 async def get_current_active_user(
-        current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> User:
     """获取当前激活用户"""
     if not current_user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Inactive user"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user"
         )
     return current_user
 
 
 async def get_current_superuser(
-        current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> User:
     """获取当前超级用户"""
     if not current_user.is_superuser:
         log.warning(f"Non-superuser attempted superuser action: {current_user.id}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough privileges"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough privileges"
         )
     return current_user
 
 
 async def verify_api_key(
-        x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
-        db: AsyncSession = Depends(get_db)
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    db: AsyncSession = Depends(get_db),
 ) -> APIKey:
     """
     验证API密钥
@@ -116,7 +112,7 @@ async def verify_api_key(
         log.warning(f"Invalid API key attempted: {x_api_key[:8]}...")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired API key"
+            detail="Invalid or expired API key",
         )
 
     # 更新最后使用时间（异步，不等待）
@@ -126,8 +122,7 @@ async def verify_api_key(
 
 
 async def get_user_from_api_key(
-        api_key_obj: APIKey = Depends(verify_api_key),
-        db: AsyncSession = Depends(get_db)
+    api_key_obj: APIKey = Depends(verify_api_key), db: AsyncSession = Depends(get_db)
 ) -> User:
     """通过API密钥获取用户"""
     user = await user_crud.get(db, api_key_obj.user_id)
@@ -135,8 +130,7 @@ async def get_user_from_api_key(
     if not user or not user.is_active:
         log.warning(f"Inactive user with valid API key: {api_key_obj.user_id}")
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User is inactive"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive"
         )
 
     return user
@@ -144,9 +138,9 @@ async def get_user_from_api_key(
 
 # 可选的认证：支持 JWT 或 API Key
 async def get_current_user_optional(
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-        x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
-        db: AsyncSession = Depends(get_db)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    db: AsyncSession = Depends(get_db),
 ) -> Optional[User]:
     """
     可选认证：尝试从JWT或API Key获取用户
