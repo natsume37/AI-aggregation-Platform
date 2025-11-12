@@ -1,5 +1,5 @@
 """
-@File    : openai.py
+@File    : ai_openai.py
 @Author  : Martin
 @Time    : 2025/11/4 11:12
 @Desc    :
