@@ -101,6 +101,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ### 5.OpenAPI文档
 
 打开浏览器访问：http://localhost:8000/docs
+![http://localhost:8000/docs](img/docs.png)
 
 
 
