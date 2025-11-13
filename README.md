@@ -26,7 +26,12 @@
 
 配置.env文件
 
+注意测试环境请创建 .env.dev 文件，生产环境请创建 .env.prod 文件
+
+
+
 ```dotenv
+# .env.dev 
 # 应用配置
 APP_NAME=AI-aggregation
 APP_VERSION=1.0.0
