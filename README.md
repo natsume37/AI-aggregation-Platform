@@ -18,7 +18,7 @@
 - openAI
 
 > 如需添加自定义AI模型、请继承BaseLLMAdapter、定义相关的接口代码即可
-> AI模型适配器代码位置：app/llm_adapters/目录下
+> AI模型适配器代码位置：app/adapters/目录下
 
 ### 2. 如何使用?
 
