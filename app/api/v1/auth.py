@@ -7,7 +7,7 @@
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.logging import log
+from app.main import log
 from app.core.security import create_access_token
 from app.crud.user import user_crud
 from app.schemas.auth import LoginRequest, Token

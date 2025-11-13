@@ -6,100 +6,122 @@
 """
 
 import time
-from app.adapters.base import ChatMessage, ChatRequest, ModelProvider
+from typing import Optional, List, Union
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.enums import ModelProvider
+from app.adapters.base import BaseLLMAdapter, ChatMessage, ChatRequest  # ← 适配器的类
 from app.adapters.model_registry import model_registry
-from app.core.logging import log
+from app.main import log
 from app.crud.conversation import ConversationCreate, conversation_crud
 from app.crud.usage_log import UsageLogCreate, usage_log_crud
 from app.models.conversation import Conversation
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.schemas.chat import ChatMessageRequest  # ← API 层的类
+
 
 class ChatService:
     """聊天服务"""
 
     async def chat(
-        self,
-        db: AsyncSession,
-        user_id: int,
-        model: str,
-        messages: list[ChatMessage],
-        conversation_id: int | None = None,
-        save_conversation: bool = True,
-        **kwargs,
+            self,
+            db: AsyncSession,
+            user_id: int,
+            model: str,
+            messages: List[Union[ChatMessageRequest, ChatMessage, dict]],  # 支持多种类型
+            conversation_id: Optional[int] = None,
+            save_conversation: bool = True,
+            provider: Optional[ModelProvider] = None,
+            **kwargs,
     ) -> dict:
-        """
-        执行聊天
-
-        Args:
-            db: 数据库会话
-            user_id: 用户ID
-            model: 模型名称
-            messages: 消息列表
-            conversation_id: 对话ID（可选）
-            save_conversation: 是否保存对话
-            **kwargs: 其他参数（temperature, max_tokens等）
-
-        Returns:
-            包含响应和元数据的字典
-        """
+        """执行聊天"""
         start_time = time.time()
 
-        # 1. 确定provider（这里简化处理，实际应该从配置或模型名称推断）
-        provider = self._get_provider_from_model(model)
+        # 1. 确定 provider
+        if provider is None:
+            provider = self._get_provider_from_model(model)
 
         # 2. 获取适配器
-        adapter = model_registry.get_adapter(provider)
+        adapter: BaseLLMAdapter = model_registry.get_adapter(provider)
 
-        # 3. 如果有conversation_id，加载历史消息
+        # 3. ✅ 转换消息格式为适配器需要的 ChatMessage
+        chat_messages = self._convert_to_chat_messages(messages)
+
+        # 4. 如果有 conversation_id，加载历史消息
         if conversation_id:
-            conversation = await conversation_crud.get_with_messages(db, conversation_id, user_id)
+            conversation = await conversation_crud.get_with_messages(
+                db, conversation_id, user_id
+            )
             if not conversation:
                 raise ValueError('Conversation not found')
 
-            # 合并历史消息（取最近N条）
-            history_messages = await conversation_crud.get_messages(db, conversation_id, limit=10)
+            # 验证 provider 是否一致
+            if conversation.provider != provider.value:
+                log.warning(
+                    f"Provider mismatch: conversation={conversation.provider}, "
+                    f"request={provider.value}"
+                )
 
-            # 转换为ChatMessage格式
-            historical = [ChatMessage(role=msg.role, content=msg.content) for msg in history_messages]
-
-            # 合并消息
-            all_messages = historical + messages
+            # 获取历史消息
+            history_messages = await conversation_crud.get_messages(
+                db, conversation_id, limit=10
+            )
+            historical = [
+                ChatMessage(role=msg.role, content=msg.content)
+                for msg in history_messages
+            ]
+            all_messages = historical + chat_messages  # ← 都是 ChatMessage 类型
         else:
-            all_messages = messages
+            all_messages = chat_messages
             conversation = None
 
-        # 4. 构建请求
-        chat_request = ChatRequest(model=model, messages=all_messages, stream=False, **kwargs)
+        # 5. ✅ 构建适配器请求（all_messages 已经是 List[ChatMessage]）
+        chat_request = ChatRequest(
+            model=model,
+            messages=all_messages,  # ← 现在是正确的类型
+            stream=False,
+            temperature=kwargs.get('temperature', 0.7),
+            max_tokens=kwargs.get('max_tokens'),
+            top_p=kwargs.get('top_p', 1.0),
+            frequency_penalty=kwargs.get('frequency_penalty', 0.0),
+            presence_penalty=kwargs.get('presence_penalty', 0.0),
+        )
 
-        # 5. 调用AI模型
+        # 6. 调用 AI 模型
         try:
             response = await adapter.chat(chat_request)
         except Exception as e:
-            log.error(f'AI model error: {str(e)}')
+            log.error(f"AI model error: {str(e)}", exc_info=True)
             raise
 
-        # 6. 计算响应时间
+        # 7. 计算响应时间
         response_time = time.time() - start_time
 
-        # 7. 计算成本
+        # 8. 计算成本
         cost = adapter.calculate_cost(response.usage, model)
 
-        # 8. 保存对话（如果需要）
+        # 9. 保存对话
         if save_conversation:
             if not conversation:
-                # 创建新对话
-                conversation = await self._create_conversation(db, user_id, model, provider, messages[0].content[:50])
+                conversation = await self._create_conversation(
+                    db, user_id, model, provider, chat_messages[0].content[:50]
+                )
 
             # 保存用户消息
-            for msg in messages:
-                await conversation_crud.add_message(db, conversation.id, msg.role, msg.content)
+            for msg in chat_messages:
+                await conversation_crud.add_message(
+                    db, conversation.id, msg.role, msg.content
+                )
 
-            # 保存AI响应
+            # 保存 AI 响应
             await conversation_crud.add_message(
-                db, conversation.id, 'assistant', response.content, response.usage['completion_tokens']
+                db,
+                conversation.id,
+                'assistant',
+                response.content,
+                response.usage['completion_tokens']
             )
 
-        # 9. 记录使用情况
+        # 10. 记录使用情况
         await self._log_usage(
             db,
             user_id,
@@ -108,13 +130,13 @@ class ChatService:
             provider.value,
             response.usage,
             cost,
-            response_time,
+            response_time
         )
 
-        # 10. 提交事务
+        # 11. 提交事务
         await db.commit()
 
-        # 11. 返回结果
+        # 12. 返回结果
         return {
             'id': response.id,
             'conversation_id': conversation.id if conversation else None,
@@ -128,45 +150,62 @@ class ChatService:
         }
 
     async def chat_stream(
-        self,
-        db: AsyncSession,
-        user_id: int,
-        model: str,
-        messages: list[ChatMessage],
-        conversation_id: int | None = None,
-        save_conversation: bool = True,
-        **kwargs,
+            self,
+            db: AsyncSession,
+            user_id: int,
+            model: str,
+            messages: List[Union[ChatMessageRequest, ChatMessage, dict]],
+            conversation_id: Optional[int] = None,
+            save_conversation: bool = True,
+            provider: Optional[ModelProvider] = None,
+            **kwargs,
     ):
-        """
-        流式聊天
-
-        返回异步生成器
-        """
+        """流式聊天"""
         start_time = time.time()
 
-        # 1. 获取适配器
-        provider = self._get_provider_from_model(model)
+        # 1. 确定 provider
+        if provider is None:
+            provider = self._get_provider_from_model(model)
+
+        # 2. 获取适配器
         adapter = model_registry.get_adapter(provider)
 
-        # 2. 加载历史消息（如果有）
+        # 3. ✅ 转换消息格式
+        chat_messages = self._convert_to_chat_messages(messages)
+
+        # 4. 加载历史消息（如果有）
         if conversation_id:
-            conversation = await conversation_crud.get_with_messages(db, conversation_id, user_id)
+            conversation = await conversation_crud.get_with_messages(
+                db, conversation_id, user_id
+            )
             if not conversation:
                 raise ValueError('Conversation not found')
 
-            history_messages = await conversation_crud.get_messages(db, conversation_id, limit=10)
-
-            historical = [ChatMessage(role=msg.role, content=msg.content) for msg in history_messages]
-
-            all_messages = historical + messages
+            history_messages = await conversation_crud.get_messages(
+                db, conversation_id, limit=10
+            )
+            historical = [
+                ChatMessage(role=msg.role, content=msg.content)
+                for msg in history_messages
+            ]
+            all_messages = historical + chat_messages
         else:
-            all_messages = messages
+            all_messages = chat_messages
             conversation = None
 
-        # 3. 构建请求
-        chat_request = ChatRequest(model=model, messages=all_messages, stream=True, **kwargs)
+        # 5. ✅ 构建请求
+        chat_request = ChatRequest(
+            model=model,
+            messages=all_messages,  # ← 正确的类型
+            stream=True,
+            temperature=kwargs.get('temperature', 0.7),
+            max_tokens=kwargs.get('max_tokens'),
+            top_p=kwargs.get('top_p', 1.0),
+            frequency_penalty=kwargs.get('frequency_penalty', 0.0),
+            presence_penalty=kwargs.get('presence_penalty', 0.0),
+        )
 
-        # 4. 流式调用
+        # 6. 流式调用
         full_content = ''
         finish_reason = None
 
@@ -177,72 +216,104 @@ class ChatService:
                 if chunk.finish_reason:
                     finish_reason = chunk.finish_reason
 
-                # 生成流式数据
-                yield {'content': chunk.content, 'finish_reason': chunk.finish_reason}
+                yield {
+                    'content': chunk.content,
+                    'finish_reason': chunk.finish_reason
+                }
 
         except Exception as e:
-            log.error(f'Streaming error: {str(e)}')
+            log.error(f'Streaming error: {str(e)}', exc_info=True)
             raise
 
-        # 5. 流式结束后保存（在后台任务中执行）
-        response_time = time.time() - start_time
+        # ... 后续保存逻辑 ...
 
-        # 简化的token计算（实际应该更精确）
-        prompt_tokens = sum(len(msg.content) // 4 for msg in all_messages)
-        completion_tokens = len(full_content) // 4
-        total_tokens = prompt_tokens + completion_tokens
+    def _convert_to_chat_messages(
+            self,
+            messages: List[Union[ChatMessageRequest, ChatMessage, dict]]
+    ) -> List[ChatMessage]:
+        """
+        ✅ 转换不同格式的消息为适配器需要的 ChatMessage
 
-        usage = {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'total_tokens': total_tokens}
+        Args:
+            messages: 可能是 ChatMessageRequest, ChatMessage 或 dict
 
-        cost = adapter.calculate_cost(usage, model)
+        Returns:
+            List[ChatMessage] - 适配器层的消息格式
+        """
+        chat_messages = []
 
-        # 保存对话和使用记录
-        if save_conversation:
-            if not conversation:
-                conversation = await self._create_conversation(db, user_id, model, provider, messages[0].content[:50])
+        for msg in messages:
+            if isinstance(msg, ChatMessage):
+                # 已经是适配器的 ChatMessage，直接使用
+                chat_messages.append(msg)
 
-            for msg in messages:
-                await conversation_crud.add_message(db, conversation.id, msg.role, msg.content)
+            elif isinstance(msg, ChatMessageRequest):
+                # API 层的 ChatMessageRequest，转换为 ChatMessage
+                chat_messages.append(
+                    ChatMessage(
+                        role=msg.role,
+                        content=msg.content
+                    )
+                )
 
-            await conversation_crud.add_message(db, conversation.id, 'assistant', full_content, completion_tokens)
+            elif hasattr(msg, 'role') and hasattr(msg, 'content'):
+                # 类似对象（有 role 和 content 属性）
+                chat_messages.append(
+                    ChatMessage(
+                        role=msg.role,
+                        content=msg.content
+                    )
+                )
 
-        await self._log_usage(
-            db, user_id, conversation.id if conversation else None, model, provider.value, usage, cost, response_time
-        )
+            elif isinstance(msg, dict):
+                # 字典格式
+                chat_messages.append(
+                    ChatMessage(
+                        role=msg['role'],
+                        content=msg['content']
+                    )
+                )
 
-        await db.commit()
+            else:
+                raise ValueError(f"Unsupported message type: {type(msg)}")
 
-        # 最后发送元数据
-        yield {
-            'type': 'metadata',
-            'conversation_id': conversation.id if conversation else None,
-            'usage': usage,
-            'cost': cost,
-            'response_time': response_time,
-        }
+        return chat_messages
 
     def _get_provider_from_model(self, model: str) -> ModelProvider:
-        """从模型名称推断provider"""
-        if 'gpt' in model.lower():
-            return ModelProvider.OPENAI
-        elif 'claude' in model.lower():
-            return ModelProvider.CLAUDE
-        elif any(
-            keyword in model.lower()
-            for keyword in ['qwen', 'deepseek', 'glm', 'llama', 'sflow', 'silicon', 'siliconflow','stepfun-ai']
-        ):
-            return ModelProvider.SILICONFLOW
-        # 添加更多判断...
+        """从模型名称推断 provider"""
+        model_lower = model.lower()
 
-        # 默认返回OpenAI
+        if 'gpt' in model_lower:
+            return ModelProvider.OPENAI
+
+        if 'deepseek' in model_lower:
+            return ModelProvider.DEEPSEEK
+
+        siliconflow_keywords = [
+            'qwen', 'glm', 'llama',
+            'sflow', 'silicon', 'siliconflow',
+            'stepfun-ai', 'yi-', 'internlm'
+        ]
+        if any(keyword in model_lower for keyword in siliconflow_keywords):
+            return ModelProvider.SILICONFLOW
+
+        log.warning(f"Could not determine provider for model '{model}', defaulting to OPENAI")
         return ModelProvider.OPENAI
 
     async def _create_conversation(
-        self, db: AsyncSession, user_id: int, model: str, provider: ModelProvider, title: str
+            self,
+            db: AsyncSession,
+            user_id: int,
+            model: str,
+            provider: ModelProvider,
+            title: str
     ) -> Conversation:
         """创建新对话"""
         conversation_data = ConversationCreate(
-            user_id=user_id, title=title or 'New Conversation', model_name=model, provider=provider.value
+            user_id=user_id,
+            title=title or 'New Conversation',
+            model_name=model,
+            provider=provider.value
         )
 
         conversation = await conversation_crud.create(db, conversation_data)
@@ -252,15 +323,15 @@ class ChatService:
         return conversation
 
     async def _log_usage(
-        self,
-        db: AsyncSession,
-        user_id: int,
-        conversation_id: int | None,
-        model: str,
-        provider: str,
-        usage: dict,
-        cost: float,
-        response_time: float,
+            self,
+            db: AsyncSession,
+            user_id: int,
+            conversation_id: Optional[int],
+            model: str,
+            provider: str,
+            usage: dict,
+            cost: float,
+            response_time: float,
     ):
         """记录使用情况"""
         log_data = UsageLogCreate(

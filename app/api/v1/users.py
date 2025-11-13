@@ -7,7 +7,7 @@
 
 from app.api.deps import get_current_active_user, get_current_superuser
 from app.core.database import get_db
-from app.core.logging import log
+from app.main import log
 from app.crud.user import user_crud
 from app.models.user import User
 from app.schemas.user import UserListResponse, UserResponse, UserUpdate
@@ -19,10 +19,10 @@ router = APIRouter()
 
 @router.get('/', response_model=UserListResponse, summary='获取用户列表')
 async def list_users(
-    skip: int = Query(0, ge=0, description='跳过的记录数'),
-    limit: int = Query(100, ge=1, le=100, description='返回的记录数'),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_superuser),
+        skip: int = Query(0, ge=0, description='跳过的记录数'),
+        limit: int = Query(100, ge=1, le=100, description='返回的记录数'),
+        db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_superuser),
 ):
     """
     获取用户列表（仅超级管理员）
@@ -42,7 +42,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_active_
 
 @router.get('/{user_id}', response_model=UserResponse, summary='获取指定用户信息')
 async def get_user(
-    user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+        user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
 ):
     """
     获取指定用户信息
@@ -64,10 +64,10 @@ async def get_user(
 
 @router.patch('/{user_id}', response_model=UserResponse, summary='更新用户信息')
 async def update_user(
-    user_id: int,
-    user_in: UserUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+        user_id: int,
+        user_in: UserUpdate,
+        db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_active_user),
 ):
     """
     更新用户信息
@@ -96,7 +96,7 @@ async def update_user(
 
 @router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除用户')
 async def delete_user(
-    user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_superuser)
+        user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_superuser)
 ):
     """
     删除用户（仅超级管理员）

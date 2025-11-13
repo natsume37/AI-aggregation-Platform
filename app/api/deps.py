@@ -7,7 +7,7 @@
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.logging import log
+from app.main import log
 from app.crud.api_key import api_key_crud
 from app.crud.user import user_crud
 from app.models.api_key import APIKey

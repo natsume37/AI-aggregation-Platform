@@ -2,6 +2,7 @@ from pydantic import Field, PostgresDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal
 
+
 class Settings(BaseSettings):
     """应用配置类"""
 
@@ -9,8 +10,11 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = Field(default='', description='OpenAI API密钥')
     OPENAI_BASE_URL: str | None = Field(default=None, description='OpenAI API基础URL')
     # 硅基流动配置
-    SILICONFLOW_API_KEY: str = Field(default='', description='OpenAI API密钥')
-    SILICONFLOW_BASE_URL: str | None = Field(default=None, description='OpenAI API基础URL')
+    SILICONFLOW_API_KEY: str = Field(default='', description='硅基流动API密钥')
+    SILICONFLOW_BASE_URL: str | None = Field(default=None, description='硅基流动 API基础URL')
+    # deepseek配置
+    DEEPSEEK_API_KEY: str = Field(default='', description='deepseek API密钥')
+    DEEPSEEK_BASE_URL: str | None = Field(default=None, description='deepseek API基础URL')
     # 应用基础配置
     APP_NAME: str = Field(default='FastAPI AI Backend', description='应用名称')
     APP_VERSION: str = Field(default='1.0.0', description='应用版本')
@@ -65,19 +69,25 @@ class Settings(BaseSettings):
 # 根据环境加载不同配置文件
 def get_settings() -> Settings:
     import os
+    import pathlib
+
+    # 项目根目录（假设 settings.py 在 app/core/）
+    BASE_DIR = pathlib.Path(__file__).resolve().parent.parent.parent  # 项目根 AI
 
     env = os.getenv('ENVIRONMENT', 'development')
-    print(f'[DEBUG] 系统环境变量 ENVIRONMENT = {os.getenv("ENVIRONMENT")}')
+    print(f'[DEBUG] 系统环境变量 ENVIRONMENT = {env}')
 
-    env_file_map = {'development': '.env.dev', 'staging': '.env.staging', 'production': '.env.prod'}
-    env_file = env_file_map.get(env, '.env')
+    # 使用绝对路径
+    env_file_map = {
+        'development': BASE_DIR / '.env.dev',
+        'staging': BASE_DIR / '.env.staging',
+        'production': BASE_DIR / '.env.prod',
+    }
+    env_file = env_file_map.get(env, BASE_DIR / '.env')
     print(f'[DEBUG] 即将加载配置文件: {env_file}')
 
     # 强制打印文件是否存在
-    import pathlib
-
-    file_path = pathlib.Path(env_file)
-    print(f'[DEBUG] 文件是否存在？: {file_path.exists()} -> {file_path.resolve()}')
+    print(f'[DEBUG] 文件是否存在？: {env_file.exists()} -> {env_file.resolve()}')
 
     settings = Settings(_env_file=env_file)
 
