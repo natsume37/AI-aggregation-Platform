@@ -68,12 +68,8 @@ class SiliconFlowAdapter(BaseLLMAdapter):
 
         return prompt_cost + completion_cost
 
-    async def chat(self, request: ChatRequest) -> ChatResponse:
-        """非流式聊天"""
-        await self.validate_request(request)
-
-        # ✅ 构建请求体 - 只包含 API 需要的字段
-        payload = {
+    def _build_payload(self, request: ChatRequest, is_stream: bool = False) -> dict:
+        return {
             "model": request.model,
             "messages": [
                 msg.model_dump(exclude_none=True)
@@ -83,8 +79,15 @@ class SiliconFlowAdapter(BaseLLMAdapter):
             "top_p": request.top_p,
             "frequency_penalty": request.frequency_penalty,
             "presence_penalty": request.presence_penalty,
-            "stream": False,
+            "stream": is_stream,
         }
+
+    async def chat(self, request: ChatRequest) -> ChatResponse:
+        """非流式聊天"""
+        await self.validate_request(request)
+
+        # ✅ 构建请求体 - 只包含 API 需要的字段
+        payload = self._build_payload(request, is_stream=False)
 
         if request.max_tokens:
             payload["max_tokens"] = request.max_tokens
@@ -117,7 +120,6 @@ class SiliconFlowAdapter(BaseLLMAdapter):
                 usage=filtered_usage,
                 provider=self.provider,
             )
-
         except httpx.HTTPStatusError as e:
             log.error(f"SiliconFlow API error: {e.response.status_code} - {e.response.text}")
             raise Exception(f"SiliconFlow API error: {e.response.text}")
@@ -129,19 +131,8 @@ class SiliconFlowAdapter(BaseLLMAdapter):
         """流式聊天"""
         await self.validate_request(request)
 
-        # ✅ 构建请求体
-        payload = {
-            "model": request.model,
-            "messages": [
-                msg.model_dump(exclude_none=True)
-                for msg in request.messages
-            ],
-            "temperature": request.temperature,
-            "top_p": request.top_p,
-            "frequency_penalty": request.frequency_penalty,
-            "presence_penalty": request.presence_penalty,
-            "stream": True,
-        }
+        # 构建请求体
+        payload = self._build_payload(request, is_stream=True)
 
         if request.max_tokens:
             payload["max_tokens"] = request.max_tokens
