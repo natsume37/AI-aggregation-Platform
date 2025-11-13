@@ -5,6 +5,7 @@
 @Time    : 2025/11/12 16:37
 @Desc    : 
 """
+import json
 from typing import AsyncIterator, Any, Coroutine
 
 import httpx
@@ -26,14 +27,9 @@ class DeepSeekerAdapter(BaseLLMAdapter):
             timeout=settings.CONNECT_TIMEOUT,
         )
 
-    async def chat(self, request: ChatRequest) -> ChatResponse:
-        """
-        非流式聊天
-        """
-        await self.validate_request(request)
-
-        # 构建请求体
-        payload = {
+    def _build_payload(self, request: ChatRequest, stream: bool = False) -> dict:
+        """构建请求 payload"""
+        return {
             "model": request.model,
             "messages": [msg.model_dump(exclude_none=True) for msg in request.messages],
             "temperature": request.temperature,
@@ -41,8 +37,16 @@ class DeepSeekerAdapter(BaseLLMAdapter):
             "top_p": request.top_p,
             "frequency_penalty": request.frequency_penalty,
             "presence_penalty": request.presence_penalty,
-            "stream": False,
+            "stream": stream,
         }
+
+    async def chat(self, request: ChatRequest) -> ChatResponse:
+        """
+        非流式聊天
+        """
+        await self.validate_request(request)
+        # 构建请求体
+        payload = self._build_payload(request, stream=False)
 
         try:
             response = await self.client.post("/chat/completions", json=payload)
@@ -77,7 +81,54 @@ class DeepSeekerAdapter(BaseLLMAdapter):
 
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """流式回答"""
-        pass
+        await self.validate_request(request)
+
+        payload = self._build_payload(request, stream=True)
+
+        try:
+            async with self.client.stream("POST", "/chat/completions", json=payload) as response:
+                response.raise_for_status()
+
+                # 按行读取 SSE 流
+                async for line in response.aiter_lines():
+                    line = line.strip()
+
+                    # 跳过空行和注释
+                    if not line or line.startswith(':'):
+                        continue
+
+                    # 解析 "data: " 前缀
+                    if line.startswith('data: '):
+                        data = line[6:]  # 去掉 "data: " 前缀
+
+                        # 流结束标志
+                        if data == '[DONE]':
+                            break
+
+                        try:
+                            chunk = json.loads(data)
+                            delta = chunk["choices"][0].get("delta", {})
+
+                            if "content" in delta:
+                                yield StreamChunk(
+                                    content=delta["content"],
+                                    finish_reason=chunk["choices"][0].get("finish_reason"),
+                                )
+
+                            # 最后一个 chunk 可能包含 usage
+                            if "usage" in chunk:
+                                # 可以选择性地处理 usage
+                                pass
+
+                        except json.JSONDecodeError:
+                            continue
+
+        except httpx.HTTPStatusError as e:
+            log.error(f"DeepSeek API error: {e.response.status_code} - {e.response.text}")
+            raise
+        except Exception as e:
+            log.error(f"Unexpected DeepSeek error: {str(e)}")
+            raise
 
     async def get_available_models(self) -> list[str]:
         """

@@ -5,10 +5,11 @@
 @Desc    :
 """
 from datetime import datetime
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from fastapi.responses import StreamingResponse
 from app.adapters.model_registry import model_registry
 from app.api.deps import get_current_active_user
 from app.core.database import get_db
@@ -49,8 +50,6 @@ async def create_chat_completion(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='此接口不支持流式响应，请使用流式专用接口')
 
     try:
-        # 直接使用 request.messages，因为它的类型已经是 List[ChatMessageRequest]
-        # chat_service.chat 应该能处理这种类型
         result = await chat_service.chat(
             db=db,
             user_id=current_user.id,
@@ -85,6 +84,82 @@ async def create_chat_completion(
     except Exception as e:
         log.error(f'Chat completion error: {str(e)}')
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to complete chat')
+
+
+async def stream_chat_generator(
+        request: ChatCompletionRequest,
+        db: AsyncSession,
+        current_user: User,
+):
+    """
+    流式生成器，逐个返回流式数据块
+    """
+    try:
+        # 调用 chat 方法，stream=True 会返回异步生成器
+        generator = await chat_service.chat(
+            db=db,
+            user_id=current_user.id,
+            provider=request.provider,
+            model=request.model,
+            messages=request.messages,
+            conversation_id=request.conversation_id,
+            save_conversation=request.save_conversation,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            top_p=request.top_p,
+            frequency_penalty=request.frequency_penalty,
+            presence_penalty=request.presence_penalty,
+            stream=True,  # 启用流式模式
+        )
+
+        # 遍历异步生成器
+        async for chunk in generator:
+            # 每个 chunk 转换为 JSON 并以 SSE 格式发送
+            yield f"data: {json.dumps(chunk)}\n\n"
+
+    except ValueError as e:
+        error_msg = {"error": str(e), "type": "validation_error"}
+        yield f"data: {json.dumps(error_msg)}\n\n"
+        log.error(f'Validation error in stream: {str(e)}')
+    except Exception as e:
+        error_msg = {"error": str(e), "type": "server_error"}
+        yield f"data: {json.dumps(error_msg)}\n\n"
+        log.error(f'Stream chat error: {str(e)}')
+
+
+@router.post('/completions/stream', summary='流式聊天完成')
+async def create_chat_stream_completion(
+        request: ChatCompletionRequest,
+        db: AsyncSession = Depends(get_db),
+        current_user: User = Depends(get_current_active_user)
+):
+    """
+    流式聊天完成 - 返回 Server-Sent Events (SSE) 格式的数据流
+
+    客户端接收格式：
+    ```
+    data: {"content": "Hello", "finish_reason": null, ...}
+
+    data: {"content": " world", "finish_reason": null, ...}
+
+    data: {"content": "", "finish_reason": "stop", ...}
+    ```
+    """
+    try:
+        return StreamingResponse(
+            stream_chat_generator(request, db, current_user),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        log.error(f'Stream setup error: {str(e)}')
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to setup stream')
 
 
 @router.get('/conversations', response_model=ConversationListResponse, summary='获取对话列表')

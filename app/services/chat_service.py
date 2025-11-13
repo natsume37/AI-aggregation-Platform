@@ -1,22 +1,22 @@
 """
-@File    : chat_service.py.py
+@File    : chat_service.py
 @Author  : Martin
 @Time    : 2025/11/4 11:20
-@Desc    :
+@Desc    : 支持流式和非流式聊天的服务
 """
 
 import time
-from typing import Optional, List, Union
+from typing import Optional, List, Union, AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import ModelProvider
-from app.adapters.base import BaseLLMAdapter, ChatMessage, ChatRequest  # ← 适配器的类
+from app.adapters.base import BaseLLMAdapter, ChatMessage, ChatRequest
 from app.adapters.model_registry import model_registry
 from app.main import log
 from app.crud.conversation import ConversationCreate, conversation_crud
 from app.crud.usage_log import UsageLogCreate, usage_log_crud
 from app.models.conversation import Conversation
-from app.schemas.chat import ChatMessageRequest  # ← API 层的类
+from app.schemas.chat import ChatMessageRequest
 from app.adapters.base import inject_system_prompt
 
 
@@ -28,18 +28,64 @@ class ChatService:
             db: AsyncSession,
             user_id: int,
             model: str,
-            messages: List[Union[ChatMessageRequest, ChatMessage, dict]],  # 支持多种类型
+            messages: List[Union[ChatMessageRequest, ChatMessage, dict]],
+            conversation_id: Optional[int] = None,
+            save_conversation: bool = True,
+            provider: Optional[ModelProvider] = None,
+            stream: bool = False,
+            **kwargs,
+    ):
+        """
+        执行聊天 - 支持流式和非流式模式
+
+        Args:
+            stream: 是否启用流式模式
+
+        Returns:
+            stream=False: dict
+            stream=True: AsyncGenerator
+        """
+        if stream:
+            # 返回异步生成器
+            return self._chat_stream(
+                db=db,
+                user_id=user_id,
+                model=model,
+                messages=messages,
+                conversation_id=conversation_id,
+                save_conversation=save_conversation,
+                provider=provider,
+                **kwargs
+            )
+        else:
+            # 非流式，返回 dict
+            return await self._chat_non_stream(
+                db=db,
+                user_id=user_id,
+                model=model,
+                messages=messages,
+                conversation_id=conversation_id,
+                save_conversation=save_conversation,
+                provider=provider,
+                **kwargs
+            )
+
+    async def _chat_non_stream(
+            self,
+            db: AsyncSession,
+            user_id: int,
+            model: str,
+            messages: List[Union[ChatMessageRequest, ChatMessage, dict]],
             conversation_id: Optional[int] = None,
             save_conversation: bool = True,
             provider: Optional[ModelProvider] = None,
             **kwargs,
     ) -> dict:
-        """执行聊天"""
+        """非流式聊天实现"""
         start_time = time.time()
 
         # 1. 确定 provider
         if provider is None:
-            # provider = self._get_provider_from_model(model)
             raise ValueError('Provider must be specified')
 
         # 2. 获取适配器
@@ -75,8 +121,10 @@ class ChatService:
         else:
             all_messages = chat_messages
             conversation = None
+
         # 注入系统提示词
         request_msg = inject_system_prompt(all_messages)
+
         # 5. 构建适配器请求（all_messages 已经是 List[ChatMessage]）
         chat_request = ChatRequest(
             model=model,
@@ -152,7 +200,7 @@ class ChatService:
             'response_time': response_time,
         }
 
-    async def chat_stream(
+    def _chat_stream(
             self,
             db: AsyncSession,
             user_id: int,
@@ -162,73 +210,141 @@ class ChatService:
             save_conversation: bool = True,
             provider: Optional[ModelProvider] = None,
             **kwargs,
-    ):
-        """流式聊天"""
-        start_time = time.time()
+    ) -> AsyncGenerator:
+        """
+        流式聊天 - 返回异步生成器对象
 
-        # 1. 确定 provider
-        if provider is None:
-            # provider = self._get_provider_from_model(model)
-            raise ValueError('Provider must be specified')
-        # 2. 获取适配器
-        adapter = model_registry.get_adapter(provider)
+        这个方法不是 async def，而是返回一个异步生成器对象
+        """
 
-        # 3. ✅ 转换消息格式
-        chat_messages = self._convert_to_chat_messages(messages)
+        async def _stream_generator():
+            """真正的异步生成器"""
+            start_time = time.time()
 
-        # 4. 加载历史消息（如果有）
-        if conversation_id:
-            conversation = await conversation_crud.get_with_messages(
-                db, conversation_id, user_id
+            # 1. 确定 provider
+            if provider is None:
+                raise ValueError('Provider must be specified')
+
+            # 2. 获取适配器
+            adapter: BaseLLMAdapter = model_registry.get_adapter(provider)
+
+            # 3. ✅ 转换消息格式
+            chat_messages = self._convert_to_chat_messages(messages)
+
+            # 4. 加载历史消息（如果有）
+            if conversation_id:
+                conversation = await conversation_crud.get_with_messages(
+                    db, conversation_id, user_id
+                )
+                if not conversation:
+                    raise ValueError('Conversation not found')
+
+                history_messages = await conversation_crud.get_messages(
+                    db, conversation_id, limit=10
+                )
+                historical = [
+                    ChatMessage(role=msg.role, content=msg.content)
+                    for msg in history_messages
+                ]
+                all_messages = historical + chat_messages
+            else:
+                all_messages = chat_messages
+                conversation = None
+
+            # 5. 注入系统提示词
+            request_msg = inject_system_prompt(all_messages)
+
+            # 6. ✅ 构建请求
+            chat_request = ChatRequest(
+                model=model,
+                messages=request_msg,
+                stream=True,
+                temperature=kwargs.get('temperature', 0.7),
+                max_tokens=kwargs.get('max_tokens'),
+                top_p=kwargs.get('top_p', 1.0),
+                frequency_penalty=kwargs.get('frequency_penalty', 0.0),
+                presence_penalty=kwargs.get('presence_penalty', 0.0),
             )
-            if not conversation:
-                raise ValueError('Conversation not found')
 
-            history_messages = await conversation_crud.get_messages(
-                db, conversation_id, limit=10
-            )
-            historical = [
-                ChatMessage(role=msg.role, content=msg.content)
-                for msg in history_messages
-            ]
-            all_messages = historical + chat_messages
-        else:
-            all_messages = chat_messages
-            conversation = None
+            # 7. 流式调用
+            full_content = ''
+            finish_reason = None
+            usage = None
 
-        # 5. ✅ 构建请求
-        chat_request = ChatRequest(
-            model=model,
-            messages=all_messages,  # ← 正确的类型
-            stream=True,
-            temperature=kwargs.get('temperature', 0.7),
-            max_tokens=kwargs.get('max_tokens'),
-            top_p=kwargs.get('top_p', 1.0),
-            frequency_penalty=kwargs.get('frequency_penalty', 0.0),
-            presence_penalty=kwargs.get('presence_penalty', 0.0),
-        )
+            try:
+                async for chunk in adapter.chat_stream(chat_request):
+                    if chunk.content:
+                        full_content += chunk.content
 
-        # 6. 流式调用
-        full_content = ''
-        finish_reason = None
+                    if chunk.finish_reason:
+                        finish_reason = chunk.finish_reason
 
-        try:
-            async for chunk in adapter.chat_stream(chat_request):
-                if chunk.content:
-                    full_content += chunk.content
-                if chunk.finish_reason:
-                    finish_reason = chunk.finish_reason
+                    # 捕获最终的 usage 信息
+                    if hasattr(chunk, 'usage') and chunk.usage:
+                        usage = chunk.usage
 
-                yield {
-                    'content': chunk.content,
-                    'finish_reason': chunk.finish_reason
-                }
+                    # 流式返回每个 chunk
+                    yield {
+                        'id': getattr(chunk, 'id', None),
+                        'model': chunk.model if hasattr(chunk, 'model') else model,
+                        'provider': chunk.provider.value if hasattr(chunk, 'provider') else provider.value,
+                        'content': chunk.content,
+                        'finish_reason': chunk.finish_reason,
+                        'usage': usage,
+                    }
 
-        except Exception as e:
-            log.error(f'Streaming error: {str(e)}', exc_info=True)
-            raise
+            except Exception as e:
+                log.error(f'Streaming error: {str(e)}', exc_info=True)
+                raise
 
-        # ... 后续保存逻辑 ...
+            # 8. 计算响应时间
+            response_time = time.time() - start_time
+
+            # 9. 保存对话（流式模式下）
+            if save_conversation:
+                if not conversation:
+                    conversation = await self._create_conversation(
+                        db, user_id, model, provider, chat_messages[0].content[:50]
+                    )
+
+                # 保存用户消息
+                for msg in chat_messages:
+                    await conversation_crud.add_message(
+                        db, conversation.id, msg.role, msg.content
+                    )
+
+                # 保存 AI 完整响应
+                completion_tokens = 0
+                if usage:
+                    completion_tokens = usage.get('completion_tokens', 0)
+
+                await conversation_crud.add_message(
+                    db,
+                    conversation.id,
+                    'assistant',
+                    full_content,
+                    completion_tokens
+                )
+
+            # 10. 记录使用情况
+            if usage:
+                cost = adapter.calculate_cost(usage, model)
+                await self._log_usage(
+                    db,
+                    user_id,
+                    conversation.id if conversation else None,
+                    model,
+                    provider.value,
+                    usage,
+                    cost,
+                    response_time
+                )
+
+            # 11. 提交事务
+            await db.commit()
+
+        # 返回异步生成器对象
+        return _stream_generator()
 
     def _convert_to_chat_messages(
             self,
@@ -282,27 +398,6 @@ class ChatService:
 
         return chat_messages
 
-    # def _get_provider_from_model(self, model: str) -> ModelProvider:
-    #     """从用户供应商选择·"""
-    #     model_lower = model.lower()
-    #
-    #     if 'gpt' in model_lower:
-    #         return ModelProvider.OPENAI
-    #
-    #     if 'deepseek' in model_lower:
-    #         return ModelProvider.DEEPSEEK
-    #
-    #     siliconflow_keywords = [
-    #         'qwen', 'glm', 'llama',
-    #         'sflow', 'silicon', 'siliconflow',
-    #         'stepfun-ai', 'yi-', 'internlm'
-    #     ]
-    #     if any(keyword in model_lower for keyword in siliconflow_keywords):
-    #         return ModelProvider.SILICONFLOW
-    #
-    #     log.warning(f"Could not determine provider for model '{model}', defaulting to OPENAI")
-    #     return ModelProvider.OPENAI
-
     async def _create_conversation(
             self,
             db: AsyncSession,
@@ -342,9 +437,9 @@ class ChatService:
             conversation_id=conversation_id,
             model_name=model,
             provider=provider,
-            prompt_tokens=usage['prompt_tokens'],
-            completion_tokens=usage['completion_tokens'],
-            total_tokens=usage['total_tokens'],
+            prompt_tokens=usage.get('prompt_tokens', 0),
+            completion_tokens=usage.get('completion_tokens', 0),
+            total_tokens=usage.get('total_tokens', 0),
             cost=cost,
             response_time=response_time,
         )
