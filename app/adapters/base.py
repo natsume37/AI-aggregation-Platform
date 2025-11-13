@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from pydantic import BaseModel
 
-# ✅ 从 core.enums 导入
+from app.core.config import settings
 from app.core.enums import ModelProvider
 
 
@@ -48,6 +48,15 @@ class StreamChunk(BaseModel):
     """流式响应块"""
     content: str
     finish_reason: str | None = None
+
+
+def inject_system_prompt(messages: list[ChatMessage]) -> list[ChatMessage]:
+    """在适配器层消息列表前插入系统提示词"""
+    system_message = ChatMessage(
+        role="system",
+        content=settings.SYSTEM_PROMPT
+    )
+    return [system_message, *messages]
 
 
 # ==================== 适配器抽象基类 ====================
@@ -91,7 +100,7 @@ class BaseLLMAdapter(ABC):
         if request.temperature < 0 or request.temperature > 2:
             raise ValueError('Temperature must be between 0 and 2')
 
-        available_models =  await self.get_available_models()
+        available_models = await self.get_available_models()
         if request.model not in available_models:
             raise ValueError(
                 f"Model '{request.model}' not supported by {self.provider.value}. "

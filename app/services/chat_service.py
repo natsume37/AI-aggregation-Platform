@@ -17,6 +17,7 @@ from app.crud.conversation import ConversationCreate, conversation_crud
 from app.crud.usage_log import UsageLogCreate, usage_log_crud
 from app.models.conversation import Conversation
 from app.schemas.chat import ChatMessageRequest  # ← API 层的类
+from app.adapters.base import inject_system_prompt
 
 
 class ChatService:
@@ -38,7 +39,8 @@ class ChatService:
 
         # 1. 确定 provider
         if provider is None:
-            provider = self._get_provider_from_model(model)
+            # provider = self._get_provider_from_model(model)
+            raise ValueError('Provider must be specified')
 
         # 2. 获取适配器
         adapter: BaseLLMAdapter = model_registry.get_adapter(provider)
@@ -73,11 +75,12 @@ class ChatService:
         else:
             all_messages = chat_messages
             conversation = None
-
-        # 5. ✅ 构建适配器请求（all_messages 已经是 List[ChatMessage]）
+        # 注入系统提示词
+        request_msg = inject_system_prompt(all_messages)
+        # 5. 构建适配器请求（all_messages 已经是 List[ChatMessage]）
         chat_request = ChatRequest(
             model=model,
-            messages=all_messages,  # ← 现在是正确的类型
+            messages=request_msg,  # ← 现在是正确的类型
             stream=False,
             temperature=kwargs.get('temperature', 0.7),
             max_tokens=kwargs.get('max_tokens'),
@@ -165,8 +168,8 @@ class ChatService:
 
         # 1. 确定 provider
         if provider is None:
-            provider = self._get_provider_from_model(model)
-
+            # provider = self._get_provider_from_model(model)
+            raise ValueError('Provider must be specified')
         # 2. 获取适配器
         adapter = model_registry.get_adapter(provider)
 
@@ -279,26 +282,26 @@ class ChatService:
 
         return chat_messages
 
-    def _get_provider_from_model(self, model: str) -> ModelProvider:
-        """从模型名称推断 provider"""
-        model_lower = model.lower()
-
-        if 'gpt' in model_lower:
-            return ModelProvider.OPENAI
-
-        if 'deepseek' in model_lower:
-            return ModelProvider.DEEPSEEK
-
-        siliconflow_keywords = [
-            'qwen', 'glm', 'llama',
-            'sflow', 'silicon', 'siliconflow',
-            'stepfun-ai', 'yi-', 'internlm'
-        ]
-        if any(keyword in model_lower for keyword in siliconflow_keywords):
-            return ModelProvider.SILICONFLOW
-
-        log.warning(f"Could not determine provider for model '{model}', defaulting to OPENAI")
-        return ModelProvider.OPENAI
+    # def _get_provider_from_model(self, model: str) -> ModelProvider:
+    #     """从用户供应商选择·"""
+    #     model_lower = model.lower()
+    #
+    #     if 'gpt' in model_lower:
+    #         return ModelProvider.OPENAI
+    #
+    #     if 'deepseek' in model_lower:
+    #         return ModelProvider.DEEPSEEK
+    #
+    #     siliconflow_keywords = [
+    #         'qwen', 'glm', 'llama',
+    #         'sflow', 'silicon', 'siliconflow',
+    #         'stepfun-ai', 'yi-', 'internlm'
+    #     ]
+    #     if any(keyword in model_lower for keyword in siliconflow_keywords):
+    #         return ModelProvider.SILICONFLOW
+    #
+    #     log.warning(f"Could not determine provider for model '{model}', defaulting to OPENAI")
+    #     return ModelProvider.OPENAI
 
     async def _create_conversation(
             self,

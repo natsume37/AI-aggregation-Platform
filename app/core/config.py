@@ -7,6 +7,11 @@ class Settings(BaseSettings):
     """应用配置类"""
     # 连接超时设置
     CONNECT_TIMEOUT: int = Field(default=120, description="AI连接超时时间，单位秒")
+
+    # 系统提示词设置
+    SYSTEM_PROMPT: str = Field(
+        default="You are an AI assistant of the AI aggregation platform developed by Martin. Your name is Xiaomei",
+        description="默认系统提示词")
     # OpenAI配置
     OPENAI_API_KEY: str = Field(default='', description='OpenAI API密钥')
     OPENAI_BASE_URL: str | None = Field(default=None, description='OpenAI API基础URL')
