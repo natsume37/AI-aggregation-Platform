@@ -11,6 +11,7 @@ import json
 
 from app.adapters.base import BaseLLMAdapter, ChatRequest, ChatResponse, StreamChunk
 from app.core.enums import ModelProvider
+from app.core.config import settings
 from app.main import log
 
 
@@ -33,24 +34,26 @@ class SiliconFlowAdapter(BaseLLMAdapter):
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
             },
-            timeout=60.0
+            timeout=settings.CONNECT_TIMEOUT
         )
 
     async def get_available_models(self) -> List[str]:
-        """获取可用模型列表（同步方法）"""
+        """获取可用模型（异步方法）"""
 
-        async def get_available_models(self) -> list[str]:
-            if self._model_cache and self._model_cache_expire and datetime.utcnow() < self._model_cache_expire:
-                return self._model_cache
-
-            response = await self.client.get('/models')
+        try:
+            # 使用 self.client 异步发送 GET 请求
+            response = await self.client.get("/models")
             response.raise_for_status()
             data = response.json()
 
-            model_ids = [item['id'].lower() for item in data.get('data', [])]
-            self._model_cache = model_ids
-            self._model_cache_expire = datetime.utcnow() + datetime.timedelta(minutes=5)
+            # 提取 id 列表
+            model_ids = [item["id"] for item in data.get("data", [])]
             return model_ids
+
+        except httpx.HTTPStatusError as e:
+            raise Exception(f"API 请求失败: {e.response.status_code} - {e.response.text}") from e
+        except Exception as e:
+            raise Exception(f"未知错误: {str(e)}") from e
 
     def calculate_cost(self, usage: Dict[str, int], model: str) -> float:
         """计算成本"""
@@ -99,18 +102,20 @@ class SiliconFlowAdapter(BaseLLMAdapter):
             # 解析响应
             choice = data["choices"][0]
             message = choice["message"]
-
+            print(data)
+            raw_usage = data.get("usage", {})
+            filtered_usage = {
+                "prompt_tokens": raw_usage.get("prompt_tokens", 0),
+                "completion_tokens": raw_usage.get("completion_tokens", 0),
+                "total_tokens": raw_usage.get("total_tokens", 0)
+            }
             return ChatResponse(
-                id=data.get("id", "siliconflow-" + str(int(time.time()))),
+                id=data.get("id", ""),
                 model=data.get("model", request.model),
-                content=message["content"],
-                finish_reason=choice.get("finish_reason", "stop"),
-                usage=data.get("usage", {
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "total_tokens": 0
-                }),
-                provider=self.provider
+                content=message.get("content", ""),
+                finish_reason=choice.get("finish_reason", ""),
+                usage=filtered_usage,
+                provider=self.provider,
             )
 
         except httpx.HTTPStatusError as e:

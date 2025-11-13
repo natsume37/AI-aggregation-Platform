@@ -9,8 +9,8 @@ import httpx
 import json
 from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelProvider, StreamChunk, ChatResponse
 from app.main import log
+from app.core.config import settings
 from collections.abc import AsyncIterator
-
 
 
 class OpenAIAdapter(BaseLLMAdapter):
@@ -31,7 +31,7 @@ class OpenAIAdapter(BaseLLMAdapter):
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'},
-            timeout=60.0,
+            timeout=settings.CONNECT_TIMEOUT,
         )
 
     def get_available_models(self) -> list[str]:

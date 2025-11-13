@@ -23,7 +23,7 @@ class DeepSeekerAdapter(BaseLLMAdapter):
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'},
-            timeout=60.0,
+            timeout=settings.CONNECT_TIMEOUT,
         )
 
     async def chat(self, request: ChatRequest) -> ChatResponse:

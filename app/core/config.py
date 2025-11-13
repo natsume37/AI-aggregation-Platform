@@ -5,7 +5,8 @@ from typing import Literal
 
 class Settings(BaseSettings):
     """应用配置类"""
-
+    # 连接超时设置
+    CONNECT_TIMEOUT: int = Field(default=120, description="AI连接超时时间，单位秒")
     # OpenAI配置
     OPENAI_API_KEY: str = Field(default='', description='OpenAI API密钥')
     OPENAI_BASE_URL: str | None = Field(default=None, description='OpenAI API基础URL')
@@ -75,7 +76,7 @@ def get_settings() -> Settings:
     BASE_DIR = pathlib.Path(__file__).resolve().parent.parent.parent  # 项目根 AI
 
     env = os.getenv('ENVIRONMENT', 'development')
-    print(f'[DEBUG] 系统环境变量 ENVIRONMENT = {env}')
+    # print(f'[DEBUG] 系统环境变量 ENVIRONMENT = {env}')
 
     # 使用绝对路径
     env_file_map = {
@@ -84,15 +85,15 @@ def get_settings() -> Settings:
         'production': BASE_DIR / '.env.prod',
     }
     env_file = env_file_map.get(env, BASE_DIR / '.env')
-    print(f'[DEBUG] 即将加载配置文件: {env_file}')
+    # print(f'[DEBUG] 即将加载配置文件: {env_file}')
 
     # 强制打印文件是否存在
     print(f'[DEBUG] 文件是否存在？: {env_file.exists()} -> {env_file.resolve()}')
 
     settings = Settings(_env_file=env_file)
 
-    print(f'[DEBUG] 成功加载 OPENAI_API_KEY: {settings.OPENAI_API_KEY[:10]}...')
-    print(f'[DEBUG] 成功加载 OPENAI_BASE_URL: {settings.OPENAI_BASE_URL}')
+    # print(f'[DEBUG] 成功加载 OPENAI_API_KEY: {settings.OPENAI_API_KEY[:10]}...')
+    # print(f'[DEBUG] 成功加载 OPENAI_BASE_URL: {settings.OPENAI_BASE_URL}')
 
     return settings
 
