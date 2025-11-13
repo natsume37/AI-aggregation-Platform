@@ -2,38 +2,30 @@
 @File    : base.py
 @Author  : Martin
 @Time    : 2025/11/4 11:11
-@Desc    :
+@Desc    : 适配器基类（适配器层独立使用）
 """
-
+import asyncio
 from abc import ABC, abstractmethod
-from app.schemas.chat import ChatCompletionResponse
 from collections.abc import AsyncIterator
-from enum import Enum
 from pydantic import BaseModel
 
-class ModelProvider(str, Enum):
-    """模型供应商"""
+# ✅ 从 core.enums 导入
+from app.core.enums import ModelProvider
 
-    OPENAI = 'openai'
-    CLAUDE = 'claude'
-    ZHIPU = 'zhipu'
-    QWEN = 'qwen'
-    SILICONFLOW = 'siliconflow'
 
+# ==================== 适配器层的数据模型 ====================
 
 class ChatMessage(BaseModel):
-    """聊天消息"""
-
+    """聊天消息（适配器层）"""
     role: str  # system, user, assistant
     content: str
     name: str | None = None
 
 
 class ChatRequest(BaseModel):
-    """聊天请求"""
-
+    """聊天请求（适配器层）"""
     model: str
-    messages: list[ChatMessage]
+    messages: list[ChatMessage]  # ← 注意这里是 ChatMessage，不是 ChatMessageRequest
     temperature: float = 0.7
     max_tokens: int | None = None
     stream: bool = False
@@ -43,22 +35,22 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    """聊天响应"""
-
+    """聊天响应（适配器层）"""
     id: str
     model: str
     content: str
     finish_reason: str
     usage: dict[str, int]  # prompt_tokens, completion_tokens, total_tokens
-    provider: ModelProvider
+    provider: ModelProvider  # ← 枚举
 
 
 class StreamChunk(BaseModel):
     """流式响应块"""
-
     content: str
     finish_reason: str | None = None
 
+
+# ==================== 适配器抽象基类 ====================
 
 class BaseLLMAdapter(ABC):
     """
@@ -72,32 +64,26 @@ class BaseLLMAdapter(ABC):
         self.provider: ModelProvider = ModelProvider.OPENAI
 
     @abstractmethod
-    async def chat(self, request: ChatRequest) -> ChatCompletionResponse:
-        """
-        非流式聊天
-        """
+    async def chat(self, request: ChatRequest) -> ChatResponse:
+        """非流式聊天"""
         pass
 
     @abstractmethod
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
-        """流式回答"""
+        """流式聊天"""
         pass
 
     @abstractmethod
-    def get_available_models(self) -> list[str]:
-        """
-        获取可用模型列表
-        """
+    async def get_available_models(self) -> list[str]:
+        """获取可用模型列表（同步方法）"""
         pass
 
     @abstractmethod
     def calculate_cost(self, usage: dict[str, int], model: str) -> float:
-        """
-        计算成本
-        """
+        """计算成本"""
         pass
 
-    def validate_request(self, request: ChatRequest) -> None:
+    async def validate_request(self, request: ChatRequest) -> None:
         """验证请求参数"""
         if not request.messages:
             raise ValueError('Messages cannot be empty')
@@ -105,8 +91,14 @@ class BaseLLMAdapter(ABC):
         if request.temperature < 0 or request.temperature > 2:
             raise ValueError('Temperature must be between 0 and 2')
 
-        if request.model not in self.get_available_models():
-            raise ValueError(f'Model {request.model} not supported')
+        available_models =  await self.get_available_models()
+        if request.model not in available_models:
+            raise ValueError(
+                f"Model '{request.model}' not supported by {self.provider.value}. "
+                f"Available models: {available_models}"
+            )
+
+
 class ModelFetchError(Exception):
-    """自定义模型获取报错"""
+    """自定义模型获取错误"""
     pass

@@ -7,9 +7,11 @@
 
 import httpx
 import json
-from app.adapters.base import BaseLLMAdapter, ChatRequest, ChatResponse, ModelProvider, StreamChunk
-from app.core.logging import log
+from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelProvider, StreamChunk, ChatResponse
+from app.main import log
 from collections.abc import AsyncIterator
+
+
 
 class OpenAIAdapter(BaseLLMAdapter):
     """OpenAI API适配器"""
@@ -49,7 +51,7 @@ class OpenAIAdapter(BaseLLMAdapter):
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
         """非流式聊天"""
-        self.validate_request(request)
+        await self.validate_request(request)
 
         # 构建请求体
         payload = {
@@ -92,7 +94,7 @@ class OpenAIAdapter(BaseLLMAdapter):
 
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """流式聊天"""
-        self.validate_request(request)
+        await self.validate_request(request)
 
         # 构建请求体
         payload = {

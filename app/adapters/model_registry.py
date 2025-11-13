@@ -5,11 +5,13 @@
 @Desc    :
 """
 
-from app.adapters.base import BaseLLMAdapter, ModelProvider
-from app.adapters.openai import OpenAIAdapter
-from app.adapters.siliconflow import SiliconFlow
+from app.adapters.base import BaseLLMAdapter, ModelProvider, ChatRequest
+from app.adapters.ai_openai import OpenAIAdapter
+from app.adapters.siliconflow import SiliconFlowAdapter
+from app.adapters.deepseek import DeepSeekerAdapter
 from app.core.config import settings
-from app.core.logging import log
+from app.main import log
+
 
 class ModelRegistry:
     """
@@ -22,10 +24,21 @@ class ModelRegistry:
         self._instances: dict[str, BaseLLMAdapter] = {}
         self._register_default_adapters()
 
+    async def chat(self, request: ChatRequest):
+        """根据 provider 调用对应适配器的 chat 方法"""
+        adapter = self.get_adapter(provider=request.provider)
+        if request.stream:
+            # 如果是流式
+            return adapter.chat_stream(request)
+        else:
+            # 非流式
+            return await adapter.chat(request)
+
     def _register_default_adapters(self):
         """注册默认适配器"""
         self.register(ModelProvider.OPENAI, OpenAIAdapter)
-        self.register(ModelProvider.SILICONFLOW, SiliconFlow)
+        self.register(ModelProvider.SILICONFLOW, SiliconFlowAdapter)
+        self.register(ModelProvider.DEEPSEEK, DeepSeekerAdapter)
         # 以后可以添加更多：
         # self.register(ModelProvider.CLAUDE, ClaudeAdapter)
         # self.register(ModelProvider.ZHIPU, ZhipuAdapter)
@@ -36,7 +49,7 @@ class ModelRegistry:
         log.info(f'Registered adapter: {provider}')
 
     def get_adapter(
-        self, provider: ModelProvider, api_key: str | None = None, base_url: str | None = None
+            self, provider: ModelProvider, api_key: str | None = None, base_url: str | None = None
     ) -> BaseLLMAdapter:
         """
         获取适配器实例
@@ -73,6 +86,7 @@ class ModelRegistry:
         key_map = {
             ModelProvider.OPENAI: getattr(settings, 'OPENAI_API_KEY', ''),
             ModelProvider.SILICONFLOW: getattr(settings, 'SILICONFLOW_API_KEY', ''),
+            ModelProvider.DEEPSEEK: getattr(settings, 'DEEPSEEK_API_KEY', ''),
         }
 
         api_key = key_map.get(provider, '')
