@@ -27,7 +27,7 @@ class DeepSeekerAdapter(BaseLLMAdapter):
             timeout=settings.CONNECT_TIMEOUT,
         )
 
-    def _build_payload(self, request: ChatRequest, stream: bool = False) -> dict:
+    def _build_payload(self, request: ChatRequest, is_stream: bool = False) -> dict:
         """构建请求 payload"""
         return {
             "model": request.model,
@@ -37,7 +37,7 @@ class DeepSeekerAdapter(BaseLLMAdapter):
             "top_p": request.top_p,
             "frequency_penalty": request.frequency_penalty,
             "presence_penalty": request.presence_penalty,
-            "stream": stream,
+            "stream": is_stream,
         }
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
@@ -46,7 +46,7 @@ class DeepSeekerAdapter(BaseLLMAdapter):
         """
         await self.validate_request(request)
         # 构建请求体
-        payload = self._build_payload(request, stream=False)
+        payload = self._build_payload(request, is_stream=False)
 
         try:
             response = await self.client.post("/chat/completions", json=payload)
