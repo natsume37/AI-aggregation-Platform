@@ -83,7 +83,7 @@ class DeepSeekerAdapter(BaseLLMAdapter):
         """流式回答"""
         await self.validate_request(request)
 
-        payload = self._build_payload(request, stream=True)
+        payload = self._build_payload(request, is_stream=True)
 
         try:
             async with self.client.stream("POST", "/chat/completions", json=payload) as response:
