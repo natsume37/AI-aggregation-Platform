@@ -17,7 +17,7 @@
 - 硅基流动    [API-key申请地址](https://www.siliconflow.cn/)
 - openAI    [API-key申请地址](https://platform.openai.com/)
 
-> 如需添加自定义AI模型、请继承BaseLLMAdapter、定义相关的接口代码即可
+> 如需添加自定义AI模型、请继承BaseLLMAdapter抽象基类、定义相关的接口代码即可
 > AI模型适配器代码位置：app/adapters/目录下
 
 ### 2. 如何使用?
