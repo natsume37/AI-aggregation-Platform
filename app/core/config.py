@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     SYSTEM_PROMPT: str = Field(
         default="You are an AI assistant of the AI aggregation platform developed by Martin. Your name is Xiaomei",
         description="默认系统提示词")
+    # AI_API_KEY 配置
     # OpenAI配置
     OPENAI_API_KEY: str = Field(default='', description='OpenAI API密钥')
     OPENAI_BASE_URL: str | None = Field(default=None, description='OpenAI API基础URL')
@@ -21,6 +22,10 @@ class Settings(BaseSettings):
     # deepseek配置
     DEEPSEEK_API_KEY: str = Field(default='', description='deepseek API密钥')
     DEEPSEEK_BASE_URL: str | None = Field(default=None, description='deepseek API基础URL')
+    # 阿里云配置
+    ALIYUNCS_API_KEY: str = Field(default='', description='阿里云API密钥')
+    ALIYUNCS_BASE_URL: str | None = Field(default=None, description='阿里云 API基础URL')
+
     # 应用基础配置
     APP_NAME: str = Field(default='FastAPI AI Backend', description='应用名称')
     APP_VERSION: str = Field(default='1.0.0', description='应用版本')

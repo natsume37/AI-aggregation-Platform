@@ -4,7 +4,7 @@
 @Time    : 2025/11/4 11:14
 @Desc    :
 """
-
+from app.adapters.aliyuncs import AliyunAsapter
 from app.adapters.base import BaseLLMAdapter, ModelProvider, ChatRequest
 from app.adapters.ai_openai import OpenAIAdapter
 from app.adapters.siliconflow import SiliconFlowAdapter
@@ -35,10 +35,15 @@ class ModelRegistry:
             return await adapter.chat(request)
 
     def _register_default_adapters(self):
-        """注册默认适配器"""
+        """
+        注册默认适配器
+         以后可以添加更多适配器,只需在这里注册即可
+        :return:
+        """
         self.register(ModelProvider.OPENAI, OpenAIAdapter)
         self.register(ModelProvider.SILICONFLOW, SiliconFlowAdapter)
         self.register(ModelProvider.DEEPSEEK, DeepSeekerAdapter)
+        self.register(ModelProvider.ALIYUNCS, AliyunAsapter)
         # 以后可以添加更多：
         # self.register(ModelProvider.CLAUDE, ClaudeAdapter)
         # self.register(ModelProvider.ZHIPU, ZhipuAdapter)
@@ -80,13 +85,19 @@ class ModelRegistry:
         return instance
 
     def _get_default_api_key(self, provider: ModelProvider) -> str:
-        """从配置获取默认API Key"""
+        """
+        获取默认的API Key
+        这里可以从环境变量或配置文件读取
+        :param provider:
+        :return:
+        """
         # 这里可以从环境变量或配置文件读取
         # 暂时返回空字符串，实际使用时需要配置
         key_map = {
             ModelProvider.OPENAI: getattr(settings, 'OPENAI_API_KEY', ''),
             ModelProvider.SILICONFLOW: getattr(settings, 'SILICONFLOW_API_KEY', ''),
             ModelProvider.DEEPSEEK: getattr(settings, 'DEEPSEEK_API_KEY', ''),
+            ModelProvider.ALIYUNCS: getattr(settings, 'ALIYUNCS_API_KEY', ''),
         }
 
         api_key = key_map.get(provider, '')
