@@ -21,6 +21,8 @@
 > 如需添加自定义AI模型、请继承BaseLLMAdapter抽象基类、定义相关的接口代码即可
 > AI模型适配器代码位置：app/adapters/目录下
 
+注意、配置文件的读取由app/core/config.py中的settings类完成、请根据需要自行扩展
+
 ### 2. 如何使用?
 
 #### 配置文件
