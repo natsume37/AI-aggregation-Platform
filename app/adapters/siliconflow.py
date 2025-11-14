@@ -122,10 +122,10 @@ class SiliconFlowAdapter(BaseLLMAdapter):
             )
         except httpx.HTTPStatusError as e:
             log.error(f"SiliconFlow API error: {e.response.status_code} - {e.response.text}")
-            raise Exception(f"SiliconFlow API error: {e.response.text}")
+            raise ModuleNotFoundError(f"SiliconFlow API error: {e.response.text}")
         except Exception as e:
             log.error(f"Unexpected error: {str(e)}")
-            raise
+            raise ModuleNotFoundError(str(e))
 
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """流式聊天"""
