@@ -9,7 +9,7 @@ import json
 from typing import AsyncIterator, Any, Coroutine
 
 import httpx
-from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelProvider, StreamChunk, ChatResponse
+from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelProvider, StreamChunk, ChatResponse, ModelRequestError
 from app.core.config import settings
 from app.main import log
 
@@ -77,7 +77,7 @@ class DeepSeekerAdapter(BaseLLMAdapter):
             raise Exception(f"DeepSeek API error: {e.response.text}")
         except Exception as e:
             log.error(f"Unexpected DeepSeek error: {str(e)}")
-            raise
+            raise ModelRequestError(str(e))
 
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """流式回答"""

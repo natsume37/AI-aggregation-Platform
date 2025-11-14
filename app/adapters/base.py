@@ -111,3 +111,7 @@ class BaseLLMAdapter(ABC):
 class ModelFetchError(Exception):
     """自定义模型获取错误"""
     pass
+
+class ModelRequestError(Exception):
+    """自定义模型请求错误"""
+    pass
