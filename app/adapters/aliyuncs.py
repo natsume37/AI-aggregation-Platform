@@ -2,7 +2,6 @@
 @File    : aliyuncs.py
 @Author  : Martin
 @Time    : 2025/11/14 20:00
-@Desc    : 阿里云服务适配器
 """
 
 import httpx
