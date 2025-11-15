@@ -8,6 +8,7 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
+
 # 基础Schema
 class APIKeyBase(BaseModel):
     """API密钥基础Schema"""

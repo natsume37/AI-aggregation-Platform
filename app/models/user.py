@@ -31,6 +31,9 @@ class User(BaseModel):
 
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, comment='是否超级用户')
 
+    # 新增字段
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, comment='是否为管理员')
+
     # 关系
     api_keys: Mapped[list['APIKey']] = relationship('APIKey', back_populates='user', cascade='all, delete-orphan')
     conversations: Mapped[list['Conversation']] = relationship(

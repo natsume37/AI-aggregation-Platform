@@ -3,6 +3,7 @@ from sqlalchemy import DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from typing import Any
 
+
 class Base(DeclarativeBase):
     """基础模型类"""
 

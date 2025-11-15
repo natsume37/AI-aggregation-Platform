@@ -12,6 +12,7 @@ from app.schemas.user import UserCreate, UserUpdate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     """用户CRUD操作"""
 

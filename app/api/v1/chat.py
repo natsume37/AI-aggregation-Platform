@@ -4,12 +4,8 @@
 @Time    : 2025/11/4 11:11
 @Desc    :
 """
-from datetime import datetime
-import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi.responses import StreamingResponse
+import json
 from app.adapters.model_registry import model_registry
 from app.api.deps import get_current_active_user
 from app.core.database import get_db
@@ -26,15 +22,19 @@ from app.schemas.chat import (
     UsageInfo,
 )
 from app.services.chat_service import chat_service
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
 
 @router.post('/completions', summary='聊天完成', response_model=ChatCompletionResponse)
 async def create_chat_completion(
-        request: ChatCompletionRequest,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user),
+    request: ChatCompletionRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     创建聊天完成
@@ -86,11 +86,7 @@ async def create_chat_completion(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to complete chat')
 
 
-async def stream_chat_generator(
-        request: ChatCompletionRequest,
-        db: AsyncSession,
-        current_user: User,
-):
+async def stream_chat_generator(request: ChatCompletionRequest, db: AsyncSession, current_user: User):
     """
     流式生成器，逐个返回流式数据块
     """
@@ -115,23 +111,23 @@ async def stream_chat_generator(
         # 遍历异步生成器
         async for chunk in generator:
             # 每个 chunk 转换为 JSON 并以 SSE 格式发送
-            yield f"data: {json.dumps(chunk)}\n\n"
+            yield f'data: {json.dumps(chunk)}\n\n'
 
     except ValueError as e:
-        error_msg = {"error": str(e), "type": "validation_error"}
-        yield f"data: {json.dumps(error_msg)}\n\n"
+        error_msg = {'error': str(e), 'type': 'validation_error'}
+        yield f'data: {json.dumps(error_msg)}\n\n'
         log.error(f'Validation error in stream: {str(e)}')
     except Exception as e:
-        error_msg = {"error": str(e), "type": "server_error"}
-        yield f"data: {json.dumps(error_msg)}\n\n"
+        error_msg = {'error': str(e), 'type': 'server_error'}
+        yield f'data: {json.dumps(error_msg)}\n\n'
         log.error(f'Stream chat error: {str(e)}')
 
 
 @router.post('/completions/stream', summary='流式聊天完成')
 async def create_chat_stream_completion(
-        request: ChatCompletionRequest,
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user)
+    request: ChatCompletionRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """
     流式聊天完成 - 返回 Server-Sent Events (SSE) 格式的数据流
@@ -148,12 +144,8 @@ async def create_chat_stream_completion(
     try:
         return StreamingResponse(
             stream_chat_generator(request, db, current_user),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",
-            }
+            media_type='text/event-stream',
+            headers={'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no'},
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -164,10 +156,10 @@ async def create_chat_stream_completion(
 
 @router.get('/conversations', response_model=ConversationListResponse, summary='获取对话列表')
 async def list_conversations(
-        skip: int = Query(0, ge=0, description='跳过的记录数'),
-        limit: int = Query(100, ge=1, le=100, description='返回的记录数'),
-        db: AsyncSession = Depends(get_db),
-        current_user: User = Depends(get_current_active_user),
+    skip: int = Query(0, ge=0, description='跳过的记录数'),
+    limit: int = Query(100, ge=1, le=100, description='返回的记录数'),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
 ):
     """获取当前用户的对话列表"""
     conversations = await conversation_crud.get_by_user(db, current_user.id, skip=skip, limit=limit)
@@ -193,7 +185,7 @@ async def list_conversations(
 
 @router.get('/conversations/{conversation_id}', response_model=ConversationDetailResponse, summary='获取对话详情')
 async def get_conversation(
-        conversation_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+    conversation_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
 ):
     """获取对话详情（包含所有消息）"""
     conversation = await conversation_crud.get_with_messages(db, conversation_id, current_user.id)
@@ -215,7 +207,7 @@ async def get_conversation(
 
 @router.delete('/conversations/{conversation_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除对话')
 async def delete_conversation(
-        conversation_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+    conversation_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
 ):
     """删除对话（会级联删除所有消息）"""
     conversation = await conversation_crud.get(db, conversation_id)

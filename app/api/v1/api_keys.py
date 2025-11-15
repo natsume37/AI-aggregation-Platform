@@ -7,8 +7,8 @@
 
 from app.api.deps import get_current_active_user
 from app.core.database import get_db
-from app.main import log
 from app.crud.api_key import api_key_crud
+from app.main import log
 from app.models.user import User
 from app.schemas.api_key import APIKeyCreate, APIKeyListItem, APIKeyListResponse, APIKeyResponse, APIKeyUpdate
 from fastapi import APIRouter, Depends, HTTPException, Query, status

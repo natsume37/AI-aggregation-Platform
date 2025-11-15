@@ -6,34 +6,32 @@
 """
 
 import time
-from typing import Optional, List, Union, AsyncGenerator
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.enums import ModelProvider
-from app.adapters.base import BaseLLMAdapter, ChatMessage, ChatRequest
+from app.adapters.base import BaseLLMAdapter, ChatMessage, ChatRequest, inject_system_prompt
 from app.adapters.model_registry import model_registry
-from app.main import log
+from app.core.enums import ModelProvider
 from app.crud.conversation import ConversationCreate, conversation_crud
 from app.crud.usage_log import UsageLogCreate, usage_log_crud
+from app.main import log
 from app.models.conversation import Conversation
 from app.schemas.chat import ChatMessageRequest
-from app.adapters.base import inject_system_prompt
+from collections.abc import AsyncGenerator
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class ChatService:
     """聊天服务"""
 
     async def chat(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            model: str,
-            messages: List[Union[ChatMessageRequest, ChatMessage, dict]],
-            conversation_id: Optional[int] = None,
-            save_conversation: bool = True,
-            provider: Optional[ModelProvider] = None,
-            stream: bool = False,
-            **kwargs,
+        self,
+        db: AsyncSession,
+        user_id: int,
+        model: str,
+        messages: list[ChatMessageRequest | ChatMessage | dict],
+        conversation_id: int | None = None,
+        save_conversation: bool = True,
+        provider: ModelProvider | None = None,
+        stream: bool = False,
+        **kwargs,
     ):
         """
         执行聊天 - 支持流式和非流式模式
@@ -55,7 +53,7 @@ class ChatService:
                 conversation_id=conversation_id,
                 save_conversation=save_conversation,
                 provider=provider,
-                **kwargs
+                **kwargs,
             )
         else:
             # 非流式，返回 dict
@@ -67,19 +65,19 @@ class ChatService:
                 conversation_id=conversation_id,
                 save_conversation=save_conversation,
                 provider=provider,
-                **kwargs
+                **kwargs,
             )
 
     async def _chat_non_stream(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            model: str,
-            messages: List[Union[ChatMessageRequest, ChatMessage, dict]],
-            conversation_id: Optional[int] = None,
-            save_conversation: bool = True,
-            provider: Optional[ModelProvider] = None,
-            **kwargs,
+        self,
+        db: AsyncSession,
+        user_id: int,
+        model: str,
+        messages: list[ChatMessageRequest | ChatMessage | dict],
+        conversation_id: int | None = None,
+        save_conversation: bool = True,
+        provider: ModelProvider | None = None,
+        **kwargs,
     ) -> dict:
         """非流式聊天实现"""
         start_time = time.time()
@@ -96,27 +94,17 @@ class ChatService:
 
         # 4. 如果有 conversation_id，加载历史消息
         if conversation_id:
-            conversation = await conversation_crud.get_with_messages(
-                db, conversation_id, user_id
-            )
+            conversation = await conversation_crud.get_with_messages(db, conversation_id, user_id)
             if not conversation:
                 raise ValueError('Conversation not found')
 
             # 验证 provider 是否一致
             if conversation.provider != provider.value:
-                log.warning(
-                    f"Provider mismatch: conversation={conversation.provider}, "
-                    f"request={provider.value}"
-                )
+                log.warning(f'Provider mismatch: conversation={conversation.provider}, request={provider.value}')
 
             # 获取历史消息
-            history_messages = await conversation_crud.get_messages(
-                db, conversation_id, limit=10
-            )
-            historical = [
-                ChatMessage(role=msg.role, content=msg.content)
-                for msg in history_messages
-            ]
+            history_messages = await conversation_crud.get_messages(db, conversation_id, limit=10)
+            historical = [ChatMessage(role=msg.role, content=msg.content) for msg in history_messages]
             all_messages = historical + chat_messages  # ← 都是 ChatMessage 类型
         else:
             all_messages = chat_messages
@@ -141,7 +129,7 @@ class ChatService:
         try:
             response = await adapter.chat(chat_request)
         except Exception as e:
-            log.error(f"AI model error: {str(e)}", exc_info=True)
+            log.error(f'AI model error: {str(e)}', exc_info=True)
             raise
 
         # 7. 计算响应时间
@@ -159,17 +147,11 @@ class ChatService:
 
             # 保存用户消息
             for msg in chat_messages:
-                await conversation_crud.add_message(
-                    db, conversation.id, msg.role, msg.content
-                )
+                await conversation_crud.add_message(db, conversation.id, msg.role, msg.content)
 
             # 保存 AI 响应
             await conversation_crud.add_message(
-                db,
-                conversation.id,
-                'assistant',
-                response.content,
-                response.usage['completion_tokens']
+                db, conversation.id, 'assistant', response.content, response.usage['completion_tokens']
             )
 
         # 10. 记录使用情况
@@ -181,7 +163,7 @@ class ChatService:
             provider.value,
             response.usage,
             cost,
-            response_time
+            response_time,
         )
 
         # 11. 提交事务
@@ -201,15 +183,15 @@ class ChatService:
         }
 
     def _chat_stream(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            model: str,
-            messages: List[Union[ChatMessageRequest, ChatMessage, dict]],
-            conversation_id: Optional[int] = None,
-            save_conversation: bool = True,
-            provider: Optional[ModelProvider] = None,
-            **kwargs,
+        self,
+        db: AsyncSession,
+        user_id: int,
+        model: str,
+        messages: list[ChatMessageRequest | ChatMessage | dict],
+        conversation_id: int | None = None,
+        save_conversation: bool = True,
+        provider: ModelProvider | None = None,
+        **kwargs,
     ) -> AsyncGenerator:
         """
         流式聊天 - 返回异步生成器对象
@@ -233,19 +215,12 @@ class ChatService:
 
             # 4. 加载历史消息（如果有）
             if conversation_id:
-                conversation = await conversation_crud.get_with_messages(
-                    db, conversation_id, user_id
-                )
+                conversation = await conversation_crud.get_with_messages(db, conversation_id, user_id)
                 if not conversation:
                     raise ValueError('Conversation not found')
 
-                history_messages = await conversation_crud.get_messages(
-                    db, conversation_id, limit=10
-                )
-                historical = [
-                    ChatMessage(role=msg.role, content=msg.content)
-                    for msg in history_messages
-                ]
+                history_messages = await conversation_crud.get_messages(db, conversation_id, limit=10)
+                historical = [ChatMessage(role=msg.role, content=msg.content) for msg in history_messages]
                 all_messages = historical + chat_messages
             else:
                 all_messages = chat_messages
@@ -309,22 +284,14 @@ class ChatService:
 
                 # 保存用户消息
                 for msg in chat_messages:
-                    await conversation_crud.add_message(
-                        db, conversation.id, msg.role, msg.content
-                    )
+                    await conversation_crud.add_message(db, conversation.id, msg.role, msg.content)
 
                 # 保存 AI 完整响应
                 completion_tokens = 0
                 if usage:
                     completion_tokens = usage.get('completion_tokens', 0)
 
-                await conversation_crud.add_message(
-                    db,
-                    conversation.id,
-                    'assistant',
-                    full_content,
-                    completion_tokens
-                )
+                await conversation_crud.add_message(db, conversation.id, 'assistant', full_content, completion_tokens)
 
             # 10. 记录使用情况
             if usage:
@@ -337,7 +304,7 @@ class ChatService:
                     provider.value,
                     usage,
                     cost,
-                    response_time
+                    response_time,
                 )
 
             # 11. 提交事务
@@ -346,10 +313,7 @@ class ChatService:
         # 返回异步生成器对象
         return _stream_generator()
 
-    def _convert_to_chat_messages(
-            self,
-            messages: List[Union[ChatMessageRequest, ChatMessage, dict]]
-    ) -> List[ChatMessage]:
+    def _convert_to_chat_messages(self, messages: list[ChatMessageRequest | ChatMessage | dict]) -> list[ChatMessage]:
         """
         ✅ 转换不同格式的消息为适配器需要的 ChatMessage
 
@@ -368,50 +332,27 @@ class ChatService:
 
             elif isinstance(msg, ChatMessageRequest):
                 # API 层的 ChatMessageRequest，转换为 ChatMessage
-                chat_messages.append(
-                    ChatMessage(
-                        role=msg.role,
-                        content=msg.content
-                    )
-                )
+                chat_messages.append(ChatMessage(role=msg.role, content=msg.content))
 
             elif hasattr(msg, 'role') and hasattr(msg, 'content'):
                 # 类似对象（有 role 和 content 属性）
-                chat_messages.append(
-                    ChatMessage(
-                        role=msg.role,
-                        content=msg.content
-                    )
-                )
+                chat_messages.append(ChatMessage(role=msg.role, content=msg.content))
 
             elif isinstance(msg, dict):
                 # 字典格式
-                chat_messages.append(
-                    ChatMessage(
-                        role=msg['role'],
-                        content=msg['content']
-                    )
-                )
+                chat_messages.append(ChatMessage(role=msg['role'], content=msg['content']))
 
             else:
-                raise ValueError(f"Unsupported message type: {type(msg)}")
+                raise ValueError(f'Unsupported message type: {type(msg)}')
 
         return chat_messages
 
     async def _create_conversation(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            model: str,
-            provider: ModelProvider,
-            title: str
+        self, db: AsyncSession, user_id: int, model: str, provider: ModelProvider, title: str
     ) -> Conversation:
         """创建新对话"""
         conversation_data = ConversationCreate(
-            user_id=user_id,
-            title=title or 'New Conversation',
-            model_name=model,
-            provider=provider.value
+            user_id=user_id, title=title or 'New Conversation', model_name=model, provider=provider.value
         )
 
         conversation = await conversation_crud.create(db, conversation_data)
@@ -421,15 +362,15 @@ class ChatService:
         return conversation
 
     async def _log_usage(
-            self,
-            db: AsyncSession,
-            user_id: int,
-            conversation_id: Optional[int],
-            model: str,
-            provider: str,
-            usage: dict,
-            cost: float,
-            response_time: float,
+        self,
+        db: AsyncSession,
+        user_id: int,
+        conversation_id: int | None,
+        model: str,
+        provider: str,
+        usage: dict,
+        cost: float,
+        response_time: float,
     ):
         """记录使用情况"""
         log_data = UsageLogCreate(

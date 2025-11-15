@@ -13,6 +13,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 class CRUDAPIKey(CRUDBase[APIKey, APIKeyCreate, APIKeyUpdate]):
     """API密钥CRUD操作"""
 

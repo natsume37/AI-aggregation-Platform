@@ -4,19 +4,19 @@
 @Time    : 2025/11/4 11:11
 @Desc    : 适配器基类（适配器层独立使用）
 """
-import asyncio
+
 from abc import ABC, abstractmethod
+from app.core.config import settings
+from app.core.enums import ModelProvider
 from collections.abc import AsyncIterator
 from pydantic import BaseModel
 
-from app.core.config import settings
-from app.core.enums import ModelProvider
-
-
 # ==================== 适配器层的数据模型 ====================
+
 
 class ChatMessage(BaseModel):
     """聊天消息（适配器层）"""
+
     role: str  # system, user, assistant
     content: str
     name: str | None = None
@@ -24,6 +24,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """聊天请求（适配器层）"""
+
     model: str
     messages: list[ChatMessage]  # ← 注意这里是 ChatMessage，不是 ChatMessageRequest
     temperature: float = 0.7
@@ -36,6 +37,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     """聊天响应（适配器层）"""
+
     id: str
     model: str
     content: str
@@ -46,20 +48,19 @@ class ChatResponse(BaseModel):
 
 class StreamChunk(BaseModel):
     """流式响应块"""
+
     content: str
     finish_reason: str | None = None
 
 
 def inject_system_prompt(messages: list[ChatMessage]) -> list[ChatMessage]:
     """在适配器层消息列表前插入系统提示词"""
-    system_message = ChatMessage(
-        role="system",
-        content=settings.SYSTEM_PROMPT
-    )
+    system_message = ChatMessage(role='system', content=settings.SYSTEM_PROMPT)
     return [system_message, *messages]
 
 
 # ==================== 适配器抽象基类 ====================
+
 
 class BaseLLMAdapter(ABC):
     """
@@ -103,15 +104,17 @@ class BaseLLMAdapter(ABC):
         available_models = await self.get_available_models()
         if request.model not in available_models:
             raise ValueError(
-                f"Model '{request.model}' not supported by {self.provider.value}. "
-                f"Available models: {available_models}"
+                f"Model '{request.model}' not supported by {self.provider.value}. Available models: {available_models}"
             )
 
 
 class ModelFetchError(Exception):
     """自定义模型获取错误"""
+
     pass
+
 
 class ModelRequestError(Exception):
     """自定义模型请求错误"""
+
     pass

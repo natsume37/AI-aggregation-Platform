@@ -7,9 +7,9 @@
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.main import log
 from app.core.security import create_access_token
 from app.crud.user import user_crud
+from app.main import log
 from app.schemas.auth import LoginRequest, Token
 from app.schemas.user import UserCreate, UserResponse
 from datetime import timedelta

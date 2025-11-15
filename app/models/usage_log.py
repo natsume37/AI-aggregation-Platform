@@ -9,6 +9,7 @@ from app.models.base import BaseModel
 from sqlalchemy import JSON, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
+
 class UsageLog(BaseModel):
     """使用记录模型"""
 

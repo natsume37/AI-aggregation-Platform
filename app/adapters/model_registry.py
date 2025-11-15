@@ -4,11 +4,12 @@
 @Time    : 2025/11/4 11:14
 @Desc    :
 """
-from app.adapters.aliyuncs import AliyunAsapter
-from app.adapters.base import BaseLLMAdapter, ModelProvider, ChatRequest
+
 from app.adapters.ai_openai import OpenAIAdapter
-from app.adapters.siliconflow import SiliconFlowAdapter
+from app.adapters.aliyuncs import AliyunAsapter
+from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelProvider
 from app.adapters.deepseek import DeepSeekerAdapter
+from app.adapters.siliconflow import SiliconFlowAdapter
 from app.core.config import settings
 from app.main import log
 
@@ -54,7 +55,7 @@ class ModelRegistry:
         log.info(f'Registered adapter: {provider}')
 
     def get_adapter(
-            self, provider: ModelProvider, api_key: str | None = None, base_url: str | None = None
+        self, provider: ModelProvider, api_key: str | None = None, base_url: str | None = None
     ) -> BaseLLMAdapter:
         """
         获取适配器实例

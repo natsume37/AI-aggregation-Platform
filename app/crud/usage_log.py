@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
 class UsageLogCreate(BaseModel):
     """创建使用记录Schema"""
 

@@ -7,6 +7,7 @@
 
 from pydantic import BaseModel
 
+
 class Token(BaseModel):
     """令牌响应"""
 

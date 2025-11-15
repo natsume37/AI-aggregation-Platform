@@ -7,9 +7,9 @@
 
 import httpx
 import json
-from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelProvider, StreamChunk, ChatResponse
-from app.main import log
+from app.adapters.base import BaseLLMAdapter, ChatRequest, ChatResponse, ModelProvider, StreamChunk
 from app.core.config import settings
+from app.main import log
 from collections.abc import AsyncIterator
 
 

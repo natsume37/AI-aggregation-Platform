@@ -6,14 +6,14 @@
 """
 
 import sys
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
 import uvicorn
 
 # import the log and load it
 from app.core.logger import setup_logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 log = setup_logging()
 
@@ -40,8 +40,8 @@ async def check_db_connection() -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    log.info(f"🚀 启动 {settings.APP_NAME} v{settings.APP_VERSION}")
-    log.info(f"🌍 环境: {settings.ENVIRONMENT} | Debug: {settings.DEBUG}")
+    log.info(f'🚀 启动 {settings.APP_NAME} v{settings.APP_VERSION}')
+    log.info(f'🌍 环境: {settings.ENVIRONMENT} | Debug: {settings.DEBUG}')
 
     if not await check_db_connection():
         log.critical('❌ 启动失败：无法连接数据库')
@@ -104,7 +104,7 @@ async def health_check():
 
 # ==================== 启动入口 ====================
 if __name__ == '__main__':
-    log.info("🔧 启动 uvicorn 服务...")
+    log.info('🔧 启动 uvicorn 服务...')
     uvicorn.run(
         'app.main:app',
         host=settings.HOST,

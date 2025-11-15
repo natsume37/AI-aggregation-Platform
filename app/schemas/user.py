@@ -1,6 +1,7 @@
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+
 # 基础Schema
 class UserBase(BaseModel):
     """用户基础Schema"""
