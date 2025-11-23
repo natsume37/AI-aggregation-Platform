@@ -1,15 +1,27 @@
 [project]
-name = "ai-aggregation-platform"
+name = "ai"
 version = "0.1.0"
-description = "AI Aggregation Platform"
+description = "This is a AI aggregation platform."
 authors = [
-    {name = "Martin", email = "1957074599@qq.com"}
+    { name = "Martin", email = "1957074599@qq.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "alembic>=1.17.2",
+    "asyncpg>=0.30.0",
+    "bcrypt==4.0.1",
+    "fastapi>=0.121.3",
+    "httpx>=0.28.1",
+    "passlib>=1.7.4",
+    "pydantic-settings>=2.12.0",
+    "pydantic[email]>=2.12.4",
+    "python-jose[cryptography]>=3.5.0",
+    "sqlalchemy[asyncio]>=2.0.44",
+    "uvicorn[standard]>=0.38.0",
+]
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
-
+[dependency-groups]
+dev = [
+    "requests>=2.32.5",
+]
