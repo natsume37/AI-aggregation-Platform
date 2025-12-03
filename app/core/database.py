@@ -6,11 +6,12 @@
 """
 
 from app.core.config import settings
-from app.main import log
+import logging
 from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
+log = logging.getLogger("app")
 
 class Base(DeclarativeBase):
     """SQLAlchemy基础模型类"""

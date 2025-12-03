@@ -11,7 +11,6 @@ from app.core.security import create_access_token
 from app.crud.user import user_crud
 from app.main import log
 from app.schemas.auth import LoginRequest, Token
-from app.schemas.user import UserCreate, UserResponse
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,40 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 router = APIRouter()
 
 
-@router.post('/register', response_model=UserResponse, status_code=status.HTTP_201_CREATED, summary='注册新用户')
-async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
-    """
-    注册新用户
-
-    - **username**: 用户名（唯一）
-    - **email**: 邮箱（唯一）
-    - **password**: 密码
-    - **full_name**: 全名（可选）
-    """
-    # 检查用户名是否已存在
-    existing_user = await user_crud.get_by_username(db, user_in.username)
-    if existing_user:
-        log.warning(f'Username already exists: {user_in.username}')
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Username already registered')
-
-    # 检查邮箱是否已存在
-    existing_email = await user_crud.get_by_email(db, user_in.email)
-    if existing_email:
-        log.warning(f'Email already exists: {user_in.email}')
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Email already registered')
-
-    # 创建用户
-    user = await user_crud.create(db, user_in)
-    await db.commit()
-
-    log.info(f'User registered: {user.id} - {user.username}')
-    return user
-
-
-@router.post('/login', response_model=Token, summary='用户登录')
+@router.post('/login', response_model=Token, summary='管理员登录')
 async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
-    用户登录，返回访问令牌
+    管理员登录，返回访问令牌
 
     - **username**: 用户名
     - **password**: 密码
@@ -71,6 +40,10 @@ async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         log.warning(f'Inactive user login attempt: {user.id}')
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Inactive user')
+
+    # 检查是否为管理员 (可选，如果只允许管理员登录)
+    # if not user.is_superuser and not user.is_admin:
+    #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not authorized')
 
     # 创建访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)

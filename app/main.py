@@ -18,6 +18,7 @@ from sqlalchemy import text
 log = setup_logging()
 
 from app.api.v1 import api_router
+from app.admin.router import router as admin_router
 from app.core.config import settings
 from app.core.database import close_db, get_engine
 
@@ -76,6 +77,7 @@ app.add_middleware(
 
 # ==================== 注册路由 ====================
 app.include_router(api_router, prefix='/api/v1')
+app.include_router(admin_router, prefix='/admin', tags=['admin'])
 
 
 # ==================== 基础接口 ====================

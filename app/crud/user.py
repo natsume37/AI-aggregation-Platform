@@ -33,6 +33,10 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             email=obj_in.email,
             hashed_password=get_password_hash(obj_in.password),
             full_name=obj_in.full_name,
+            is_active=obj_in.is_active,
+            is_superuser=obj_in.is_superuser,
+            is_admin=obj_in.is_admin,
+            must_change_password=obj_in.must_change_password,
         )
         db.add(db_obj)
         await db.flush()

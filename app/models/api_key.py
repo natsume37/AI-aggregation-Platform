@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.user import User
+    from app.models.conversation import Conversation
+    from app.models.usage_log import UsageLog
 
 
 class APIKey(BaseModel):
@@ -43,6 +45,12 @@ class APIKey(BaseModel):
 
     # 关系
     user: Mapped['User'] = relationship('User', back_populates='api_keys')
+    conversations: Mapped[list['Conversation']] = relationship(
+        'Conversation', back_populates='api_key', cascade='all, delete-orphan'
+    )
+    usage_logs: Mapped[list['UsageLog']] = relationship(
+        'UsageLog', cascade='all, delete-orphan'
+    )
 
     def __repr__(self) -> str:
         return f'<APIKey(id={self.id}, name={self.name}, user_id={self.user_id})>'

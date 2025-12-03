@@ -24,7 +24,7 @@ class ChatService:
     async def chat(
         self,
         db: AsyncSession,
-        user_id: int,
+        api_key_id: int,
         model: str,
         messages: list[ChatMessageRequest | ChatMessage | dict],
         conversation_id: int | None = None,
@@ -47,7 +47,7 @@ class ChatService:
             # 返回异步生成器
             return self._chat_stream(
                 db=db,
-                user_id=user_id,
+                api_key_id=api_key_id,
                 model=model,
                 messages=messages,
                 conversation_id=conversation_id,
@@ -59,7 +59,7 @@ class ChatService:
             # 非流式，返回 dict
             return await self._chat_non_stream(
                 db=db,
-                user_id=user_id,
+                api_key_id=api_key_id,
                 model=model,
                 messages=messages,
                 conversation_id=conversation_id,
@@ -71,7 +71,7 @@ class ChatService:
     async def _chat_non_stream(
         self,
         db: AsyncSession,
-        user_id: int,
+        api_key_id: int,
         model: str,
         messages: list[ChatMessageRequest | ChatMessage | dict],
         conversation_id: int | None = None,
@@ -94,7 +94,7 @@ class ChatService:
 
         # 4. 如果有 conversation_id，加载历史消息
         if conversation_id:
-            conversation = await conversation_crud.get_with_messages(db, conversation_id, user_id)
+            conversation = await conversation_crud.get_with_messages(db, conversation_id, api_key_id)
             if not conversation:
                 raise ValueError('Conversation not found')
 
@@ -142,7 +142,7 @@ class ChatService:
         if save_conversation:
             if not conversation:
                 conversation = await self._create_conversation(
-                    db, user_id, model, provider, chat_messages[0].content[:50]
+                    db, api_key_id, model, provider, chat_messages[0].content[:50]
                 )
 
             # 保存用户消息
@@ -157,7 +157,7 @@ class ChatService:
         # 10. 记录使用情况
         await self._log_usage(
             db,
-            user_id,
+            api_key_id,
             conversation.id if conversation else None,
             model,
             provider.value,
@@ -185,7 +185,7 @@ class ChatService:
     def _chat_stream(
         self,
         db: AsyncSession,
-        user_id: int,
+        api_key_id: int,
         model: str,
         messages: list[ChatMessageRequest | ChatMessage | dict],
         conversation_id: int | None = None,
@@ -215,7 +215,7 @@ class ChatService:
 
             # 4. 加载历史消息（如果有）
             if conversation_id:
-                conversation = await conversation_crud.get_with_messages(db, conversation_id, user_id)
+                conversation = await conversation_crud.get_with_messages(db, conversation_id, api_key_id)
                 if not conversation:
                     raise ValueError('Conversation not found')
 
@@ -279,7 +279,7 @@ class ChatService:
             if save_conversation:
                 if not conversation:
                     conversation = await self._create_conversation(
-                        db, user_id, model, provider, chat_messages[0].content[:50]
+                        db, api_key_id, model, provider, chat_messages[0].content[:50]
                     )
 
                 # 保存用户消息
@@ -298,7 +298,7 @@ class ChatService:
                 cost = adapter.calculate_cost(usage, model)
                 await self._log_usage(
                     db,
-                    user_id,
+                    api_key_id,
                     conversation.id if conversation else None,
                     model,
                     provider.value,
@@ -348,11 +348,11 @@ class ChatService:
         return chat_messages
 
     async def _create_conversation(
-        self, db: AsyncSession, user_id: int, model: str, provider: ModelProvider, title: str
+        self, db: AsyncSession, api_key_id: int, model: str, provider: ModelProvider, title: str
     ) -> Conversation:
         """创建新对话"""
         conversation_data = ConversationCreate(
-            user_id=user_id, title=title or 'New Conversation', model_name=model, provider=provider.value
+            api_key_id=api_key_id, title=title or 'New Conversation', model_name=model, provider=provider.value
         )
 
         conversation = await conversation_crud.create(db, conversation_data)
@@ -364,7 +364,7 @@ class ChatService:
     async def _log_usage(
         self,
         db: AsyncSession,
-        user_id: int,
+        api_key_id: int,
         conversation_id: int | None,
         model: str,
         provider: str,
@@ -374,7 +374,7 @@ class ChatService:
     ):
         """记录使用情况"""
         log_data = UsageLogCreate(
-            user_id=user_id,
+            api_key_id=api_key_id,
             conversation_id=conversation_id,
             model_name=model,
             provider=provider,

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.message import Message
-    from app.models.user import User
+    from app.models.api_key import APIKey
 
 
 class Conversation(BaseModel):
@@ -23,8 +23,8 @@ class Conversation(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, comment='对话ID')
 
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True, comment='用户ID'
+    api_key_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('api_keys.id', ondelete='CASCADE'), nullable=False, index=True, comment='API Key ID'
     )
 
     title: Mapped[str] = mapped_column(String(200), nullable=False, comment='对话标题')
@@ -34,10 +34,10 @@ class Conversation(BaseModel):
     provider: Mapped[str] = mapped_column(String(50), nullable=False, comment='模型供应商')
 
     # 关系
-    user: Mapped['User'] = relationship('User', back_populates='conversations')
+    api_key: Mapped['APIKey'] = relationship('APIKey', back_populates='conversations')
     messages: Mapped[list['Message']] = relationship(
         'Message', back_populates='conversation', cascade='all, delete-orphan', order_by='Message.created_at'
     )
 
     def __repr__(self) -> str:
-        return f'<Conversation(id={self.id}, title={self.title}, user_id={self.user_id})>'
+        return f'<Conversation(id={self.id}, title={self.title}, api_key_id={self.api_key_id})>'

@@ -5,14 +5,15 @@
 @Desc    :
 """
 
-from app.api.deps import get_current_active_user, get_current_superuser
+from app.api.deps import get_current_active_user, get_current_superuser, get_current_approved_user
 from app.core.database import get_db
 from app.crud.user import user_crud
 from app.main import log
 from app.models.user import User
-from app.schemas.user import UserListResponse, UserResponse, UserUpdate
+from app.schemas.user import UserListResponse, UserResponse, UserUpdate, UserPasswordUpdate
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.security import verify_password, get_password_hash
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_active_
 
 @router.get('/{user_id}', response_model=UserResponse, summary='获取指定用户信息')
 async def get_user(
-    user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+    user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
     """
     获取指定用户信息
@@ -67,7 +68,7 @@ async def update_user(
     user_id: int,
     user_in: UserUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_approved_user),
 ):
     """
     更新用户信息
@@ -76,6 +77,11 @@ async def update_user(
     if user_id != current_user.id and not current_user.is_superuser:
         log.warning(f'Unauthorized user update: {current_user.id} -> {user_id}')
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough privileges')
+
+    # 普通用户不能修改敏感字段
+    if not current_user.is_superuser:
+        if user_in.is_active is not None or user_in.must_change_password is not None:
+             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough privileges to update these fields')
 
     user = await user_crud.get(db, user_id)
     if not user:
@@ -92,6 +98,30 @@ async def update_user(
 
     log.info(f'User updated: {user.id}')
     return user
+
+
+@router.post('/change-password', summary='修改密码')
+async def change_password(
+    password_in: UserPasswordUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    修改当前登录用户的密码
+    """
+    # 验证旧密码
+    if not verify_password(password_in.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Incorrect old password')
+    
+    # 更新密码
+    current_user.hashed_password = get_password_hash(password_in.new_password)
+    current_user.must_change_password = False
+    
+    db.add(current_user)
+    await db.commit()
+    
+    log.info(f'User password changed: {current_user.id}')
+    return {"message": "Password updated successfully"}
 
 
 @router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除用户')

@@ -18,8 +18,8 @@ class UsageLog(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True, comment='记录ID')
 
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True, comment='用户ID'
+    api_key_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('api_keys.id', ondelete='CASCADE'), nullable=False, index=True, comment='API Key ID'
     )
 
     conversation_id: Mapped[int | None] = mapped_column(
@@ -44,4 +44,4 @@ class UsageLog(BaseModel):
     extra_data: Mapped[dict | None] = mapped_column(JSON, nullable=True, comment='额外元数据')
 
     def __repr__(self) -> str:
-        return f'<UsageLog(id={self.id}, user_id={self.user_id}, model={self.model_name})>'
+        return f'<UsageLog(id={self.id}, api_key_id={self.api_key_id}, model={self.model_name})>'

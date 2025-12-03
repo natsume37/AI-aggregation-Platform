@@ -9,6 +9,7 @@ from app.api.v1.api_keys import router as api_keys_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.chat import router as chat_router
 from app.api.v1.users import router as users_router
+from app.api.v1.statistics import router as statistics_router
 from fastapi import APIRouter
 
 api_router = APIRouter()
@@ -24,3 +25,6 @@ api_router.include_router(api_keys_router, prefix='/api-keys', tags=['api-keys']
 
 # 聊天路由
 api_router.include_router(chat_router, prefix='/chat', tags=['chat'])
+
+# 统计路由
+api_router.include_router(statistics_router, prefix='/statistics', tags=['statistics'])

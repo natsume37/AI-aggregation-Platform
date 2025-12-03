@@ -68,7 +68,17 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     return current_user
 
 
-async def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
+async def get_current_approved_user(current_user: User = Depends(get_current_active_user)) -> User:
+    """获取当前激活且不需要修改密码的用户"""
+    if current_user.must_change_password:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail='Password change required. Please update your password first.'
+        )
+    return current_user
+
+
+async def get_current_superuser(current_user: User = Depends(get_current_approved_user)) -> User:
     """获取当前超级用户"""
     if not current_user.is_superuser:
         log.warning(f'Non-superuser attempted superuser action: {current_user.id}')
@@ -94,22 +104,34 @@ async def verify_api_key(
         log.warning(f'Invalid API key attempted: {x_api_key[:8]}...')
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid or expired API key')
 
+    # 检查用户是否必须修改密码
+    # 注意：这里需要确保 api_key_obj.user 是加载的，或者我们需要重新查询用户
+    # 通常 APIKey 模型定义了 relationship('User', lazy='joined') 或者我们需要显式加载
+    # 假设 APIKey 模型中 user 关系是 lazy='select' (默认)，我们需要 await api_key_obj.awaitable_attrs.user
+    # 或者在 CRUD 中使用 joinedload
+    
+    # 为了简单起见，我们这里直接查询用户状态
+    user = await user_crud.get(db, api_key_obj.user_id)
+    if not user or not user.is_active:
+         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User inactive')
+         
+    if user.must_change_password:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail='Password change required. Please update your password via web interface first.'
+        )
+
     # 更新最后使用时间（异步，不等待）
     await api_key_crud.update_last_used(db, api_key_obj)
 
     return api_key_obj
 
 
-async def get_user_from_api_key(
-    api_key_obj: APIKey = Depends(verify_api_key), db: AsyncSession = Depends(get_db)
-) -> User:
-    """通过API密钥获取用户"""
-    user = await user_crud.get(db, api_key_obj.user_id)
-
-    if not user or not user.is_active:
-        log.warning(f'Inactive user with valid API key: {api_key_obj.user_id}')
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is inactive')
-
+async def get_user_from_api_key(api_key: APIKey, db: AsyncSession) -> User:
+    """从API Key获取用户"""
+    user = await user_crud.get(db, api_key.user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User not found')
     return user
 
 

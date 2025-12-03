@@ -8,7 +8,6 @@ if TYPE_CHECKING:
 # 在文件开头的导入部分
 if TYPE_CHECKING:
     from app.models.api_key import APIKey
-    from app.models.conversation import Conversation  # 新增
 
 
 class User(BaseModel):
@@ -33,12 +32,10 @@ class User(BaseModel):
 
     # 新增字段
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, comment='是否为管理员')
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, comment='是否必须修改密码')
 
     # 关系
     api_keys: Mapped[list['APIKey']] = relationship('APIKey', back_populates='user', cascade='all, delete-orphan')
-    conversations: Mapped[list['Conversation']] = relationship(
-        'Conversation', back_populates='user', cascade='all, delete-orphan'
-    )
 
     def __repr__(self) -> str:
         return f'<User(id={self.id}, username={self.username}, email={self.email})>'

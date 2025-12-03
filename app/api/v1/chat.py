@@ -7,11 +7,11 @@
 
 import json
 from app.adapters.model_registry import model_registry
-from app.api.deps import get_current_active_user
+from app.api.deps import verify_api_key
 from app.core.database import get_db
 from app.crud.conversation import conversation_crud
 from app.main import log
-from app.models.user import User
+from app.models.api_key import APIKey
 from app.schemas.chat import (
     AvailableModelsResponse,
     ChatCompletionRequest,
@@ -34,7 +34,7 @@ router = APIRouter()
 async def create_chat_completion(
     request: ChatCompletionRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """
     创建聊天完成
@@ -52,7 +52,7 @@ async def create_chat_completion(
     try:
         result = await chat_service.chat(
             db=db,
-            user_id=current_user.id,
+            api_key_id=api_key.id,
             provider=request.provider,
             model=request.model,
             messages=request.messages,
@@ -86,7 +86,7 @@ async def create_chat_completion(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to complete chat')
 
 
-async def stream_chat_generator(request: ChatCompletionRequest, db: AsyncSession, current_user: User):
+async def stream_chat_generator(request: ChatCompletionRequest, db: AsyncSession, api_key: APIKey):
     """
     流式生成器，逐个返回流式数据块
     """
@@ -94,7 +94,7 @@ async def stream_chat_generator(request: ChatCompletionRequest, db: AsyncSession
         # 调用 chat 方法，stream=True 会返回异步生成器
         generator = await chat_service.chat(
             db=db,
-            user_id=current_user.id,
+            api_key_id=api_key.id,
             provider=request.provider,
             model=request.model,
             messages=request.messages,
@@ -127,7 +127,7 @@ async def stream_chat_generator(request: ChatCompletionRequest, db: AsyncSession
 async def create_chat_stream_completion(
     request: ChatCompletionRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    api_key: APIKey = Depends(verify_api_key),
 ):
     """
     流式聊天完成 - 返回 Server-Sent Events (SSE) 格式的数据流
@@ -143,7 +143,7 @@ async def create_chat_stream_completion(
     """
     try:
         return StreamingResponse(
-            stream_chat_generator(request, db, current_user),
+            stream_chat_generator(request, db, api_key),
             media_type='text/event-stream',
             headers={'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no'},
         )
@@ -159,11 +159,11 @@ async def list_conversations(
     skip: int = Query(0, ge=0, description='跳过的记录数'),
     limit: int = Query(100, ge=1, le=100, description='返回的记录数'),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    api_key: APIKey = Depends(verify_api_key),
 ):
-    """获取当前用户的对话列表"""
-    conversations = await conversation_crud.get_by_user(db, current_user.id, skip=skip, limit=limit)
-    total = await conversation_crud.count_by_user(db, current_user.id)
+    """获取当前API Key的对话列表"""
+    conversations = await conversation_crud.get_by_api_key(db, api_key.id, skip=skip, limit=limit)
+    total = await conversation_crud.count_by_api_key(db, api_key.id)
 
     items = []
     for conv in conversations:
@@ -185,10 +185,10 @@ async def list_conversations(
 
 @router.get('/conversations/{conversation_id}', response_model=ConversationDetailResponse, summary='获取对话详情')
 async def get_conversation(
-    conversation_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+    conversation_id: int, db: AsyncSession = Depends(get_db), api_key: APIKey = Depends(verify_api_key)
 ):
     """获取对话详情（包含所有消息）"""
-    conversation = await conversation_crud.get_with_messages(db, conversation_id, current_user.id)
+    conversation = await conversation_crud.get_with_messages(db, conversation_id, api_key.id)
 
     if not conversation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Conversation not found')
@@ -207,7 +207,7 @@ async def get_conversation(
 
 @router.delete('/conversations/{conversation_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除对话')
 async def delete_conversation(
-    conversation_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+    conversation_id: int, db: AsyncSession = Depends(get_db), api_key: APIKey = Depends(verify_api_key)
 ):
     """删除对话（会级联删除所有消息）"""
     conversation = await conversation_crud.get(db, conversation_id)
@@ -215,7 +215,7 @@ async def delete_conversation(
     if not conversation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Conversation not found')
 
-    if conversation.user_id != current_user.id:
+    if conversation.api_key_id != api_key.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough privileges')
 
     await conversation_crud.delete(db, conversation_id)
@@ -226,7 +226,7 @@ async def delete_conversation(
 
 
 @router.get('/models', response_model=list[AvailableModelsResponse], summary='获取可用模型列表')
-async def list_available_models(current_user: User = Depends(get_current_active_user)):
+async def list_available_models(api_key: APIKey = Depends(verify_api_key)):
     """获取所有可用的AI模型"""
     providers = model_registry.get_available_providers()
 

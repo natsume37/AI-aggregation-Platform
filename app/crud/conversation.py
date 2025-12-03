@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 class ConversationCreate(BaseModel):
     """创建对话Schema"""
 
-    user_id: int
+    api_key_id: int
     title: str
     model_name: str
     provider: str
@@ -26,11 +26,11 @@ class ConversationCreate(BaseModel):
 class ConversationCRUD(CRUDBase[Conversation, ConversationCreate, BaseModel]):
     """对话CRUD操作"""
 
-    async def get_by_user(self, db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100) -> list[Conversation]:
-        """获取用户的对话列表"""
+    async def get_by_api_key(self, db: AsyncSession, api_key_id: int, skip: int = 0, limit: int = 100) -> list[Conversation]:
+        """获取API Key的对话列表"""
         result = await db.execute(
             select(Conversation)
-            .where(Conversation.user_id == user_id)
+            .where(Conversation.api_key_id == api_key_id)
             .order_by(Conversation.updated_at.desc())
             .offset(skip)
             .limit(limit)
@@ -38,22 +38,22 @@ class ConversationCRUD(CRUDBase[Conversation, ConversationCreate, BaseModel]):
         return list(result.scalars().all())
 
     async def get_with_messages(
-        self, db: AsyncSession, conversation_id: int, user_id: int | None = None
+        self, db: AsyncSession, conversation_id: int, api_key_id: int | None = None
     ) -> Conversation | None:
         """获取对话及其消息"""
         query = (
             select(Conversation).options(selectinload(Conversation.messages)).where(Conversation.id == conversation_id)
         )
 
-        if user_id:
-            query = query.where(Conversation.user_id == user_id)
+        if api_key_id:
+            query = query.where(Conversation.api_key_id == api_key_id)
 
         result = await db.execute(query)
         return result.scalar_one_or_none()
 
-    async def count_by_user(self, db: AsyncSession, user_id: int) -> int:
-        """统计用户对话数"""
-        result = await db.execute(select(func.count()).select_from(Conversation).where(Conversation.user_id == user_id))
+    async def count_by_api_key(self, db: AsyncSession, api_key_id: int) -> int:
+        """统计API Key对话数"""
+        result = await db.execute(select(func.count()).select_from(Conversation).where(Conversation.api_key_id == api_key_id))
         return result.scalar_one()
 
     async def add_message(

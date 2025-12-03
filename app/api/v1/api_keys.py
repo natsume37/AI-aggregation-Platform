@@ -5,7 +5,7 @@
 @Desc    :
 """
 
-from app.api.deps import get_current_active_user
+from app.api.deps import get_current_active_user, get_current_approved_user
 from app.core.database import get_db
 from app.crud.api_key import api_key_crud
 from app.main import log
@@ -19,7 +19,7 @@ router = APIRouter()
 
 @router.post('/', response_model=APIKeyResponse, status_code=status.HTTP_201_CREATED, summary='创建API密钥')
 async def create_api_key(
-    api_key_in: APIKeyCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+    api_key_in: APIKeyCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
     """
     为当前用户创建API密钥
@@ -42,16 +42,23 @@ async def list_api_keys(
     skip: int = Query(0, ge=0, description='跳过的记录数'),
     limit: int = Query(100, ge=1, le=100, description='返回的记录数'),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_approved_user),
 ):
     """
-    获取当前用户的API密钥列表
+    获取API密钥列表
+    如果是超级管理员，返回所有密钥；否则只返回自己的密钥。
 
     - 密钥只显示前8位预览
     - **skip**: 跳过的记录数
     - **limit**: 返回的记录数（最大100）
     """
-    api_keys = await api_key_crud.get_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
+    if current_user.is_superuser or current_user.is_admin:
+        # 超级管理员可以看到所有 Keys
+        # 需要在 CRUD 中添加 get_all 方法，或者直接在这里查询
+        # 为了简单，我们假设 api_key_crud.get_multi 可以用
+        api_keys = await api_key_crud.get_multi(db, skip=skip, limit=limit)
+    else:
+        api_keys = await api_key_crud.get_by_user(db, user_id=current_user.id, skip=skip, limit=limit)
 
     # 转换为列表项，隐藏完整密钥
     items = [
@@ -72,7 +79,7 @@ async def list_api_keys(
 
 @router.get('/{api_key_id}', response_model=APIKeyListItem, summary='获取API密钥详情')
 async def get_api_key(
-    api_key_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+    api_key_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
     """
     获取指定API密钥详情
@@ -106,7 +113,7 @@ async def update_api_key(
     api_key_id: int,
     api_key_in: APIKeyUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_approved_user),
 ):
     """
     更新API密钥信息
@@ -142,7 +149,7 @@ async def update_api_key(
 
 @router.delete('/{api_key_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除API密钥')
 async def delete_api_key(
-    api_key_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+    api_key_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
     """
     删除API密钥
@@ -168,7 +175,7 @@ async def delete_api_key(
 
 @router.post('/{api_key_id}/deactivate', response_model=APIKeyListItem, summary='停用API密钥')
 async def deactivate_api_key(
-    api_key_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_active_user)
+    api_key_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
     """
     停用API密钥
