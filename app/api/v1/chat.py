@@ -22,7 +22,7 @@ from app.schemas.chat import (
     UsageInfo,
 )
 from app.services.chat_service import chat_service
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,7 +76,7 @@ async def create_chat_completion(
             usage=UsageInfo(**result['usage']),
             cost=result['cost'],
             response_time=result['response_time'],
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
 
     except ValueError as e:

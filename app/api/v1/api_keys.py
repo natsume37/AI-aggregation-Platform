@@ -77,7 +77,7 @@ async def list_api_keys(
     return APIKeyListResponse(total=len(items), items=items)
 
 
-@router.get('/{api_key_id}', response_model=APIKeyListItem, summary='获取API密钥详情')
+@router.get('/{api_key_id}', response_model=APIKeyResponse, summary='获取API密钥详情')
 async def get_api_key(
     api_key_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
@@ -85,7 +85,7 @@ async def get_api_key(
     获取指定API密钥详情
 
     - 只能查看自己的API密钥
-    - 不返回完整密钥值
+    - 返回完整密钥值 (用于复制)
     """
     api_key = await api_key_crud.get(db, api_key_id)
 
@@ -97,15 +97,7 @@ async def get_api_key(
         log.warning(f'Unauthorized API key access: {current_user.id} -> {api_key_id}')
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough privileges')
 
-    return APIKeyListItem(
-        id=api_key.id,
-        name=api_key.name,
-        key_preview=api_key.key[:8] + '...' if len(api_key.key) > 8 else api_key.key,
-        is_active=api_key.is_active,
-        expires_at=api_key.expires_at,
-        last_used_at=api_key.last_used_at,
-        created_at=api_key.created_at,
-    )
+    return api_key
 
 
 @router.patch('/{api_key_id}', response_model=APIKeyListItem, summary='更新API密钥')

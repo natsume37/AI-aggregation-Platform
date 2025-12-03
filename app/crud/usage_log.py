@@ -7,7 +7,7 @@
 
 from app.crud.base import CRUDBase
 from app.models.usage_log import UsageLog
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +33,7 @@ class UsageLogCRUD(CRUDBase[UsageLog, UsageLogCreate, BaseModel]):
 
     async def get_api_key_usage(self, db: AsyncSession, api_key_id: int, days: int = 30) -> list[UsageLog]:
         """获取API Key使用记录"""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         result = await db.execute(
             select(UsageLog)
@@ -44,7 +44,7 @@ class UsageLogCRUD(CRUDBase[UsageLog, UsageLogCreate, BaseModel]):
 
     async def get_api_key_stats(self, db: AsyncSession, api_key_id: int, days: int = 30) -> dict:
         """获取API Key统计信息"""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         result = await db.execute(
             select(
@@ -66,7 +66,7 @@ class UsageLogCRUD(CRUDBase[UsageLog, UsageLogCreate, BaseModel]):
 
     async def get_api_key_model_stats(self, db: AsyncSession, api_key_id: int, days: int = 30) -> list[dict]:
         """按模型统计使用情况"""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         result = await db.execute(
             select(
@@ -93,7 +93,7 @@ class UsageLogCRUD(CRUDBase[UsageLog, UsageLogCreate, BaseModel]):
 
     async def get_global_stats(self, db: AsyncSession, days: int = 30) -> dict:
         """获取全局统计信息"""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         result = await db.execute(
             select(
@@ -115,7 +115,7 @@ class UsageLogCRUD(CRUDBase[UsageLog, UsageLogCreate, BaseModel]):
 
     async def get_global_model_stats(self, db: AsyncSession, days: int = 30) -> list[dict]:
         """全局按模型统计使用情况"""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         result = await db.execute(
             select(
@@ -142,7 +142,7 @@ class UsageLogCRUD(CRUDBase[UsageLog, UsageLogCreate, BaseModel]):
 
     async def get_daily_stats(self, db: AsyncSession, days: int = 30) -> list[dict]:
         """获取每日使用统计"""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
         
         # Define the date truncation expression
         date_expr = func.date_trunc('day', UsageLog.created_at)

@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # 服务器配置
     HOST: str = Field(default='0.0.0.0', description='服务器主机')
-    PORT: int = Field(default=8000, description='服务器端口')
+    PORT: int = Field(default=8089, description='服务器端口')
 
     # 数据库配置
     DATABASE_URL: PostgresDsn = Field(description='数据库连接URL')

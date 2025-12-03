@@ -1,0 +1,39 @@
+services:
+  app:
+    build: .
+    container_name: ai_app
+    ports:
+      - "8089:8089"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/ai_db
+      - SECRET_KEY=dev_secret_key_change_in_prod
+      # 如果需要连接外部服务（如OpenAI），请在这里添加API KEY
+      # - OPENAI_API_KEY=sk-...
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+      # 如果你想在开发时挂载代码实时修改，取消下面注释
+      # - ./app:/app/app
+
+  db:
+    image: postgres:15-alpine
+    container_name: ai_db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ai_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
