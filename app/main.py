@@ -21,7 +21,11 @@ from app.api.v1 import api_router
 from app.admin.router import router as admin_router
 from app.core.config import settings
 from app.core.database import close_db, get_engine
-
+from fastapi import Request, status
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from app.schemas.response import ResponseModel
 
 # ==================== 数据库健康检查 ====================
 async def check_db_connection() -> bool:
@@ -65,6 +69,36 @@ app = FastAPI(
     openapi_url='/openapi.json' if settings.DEBUG else None,
     lifespan=lifespan,
 )
+
+# ==================== 全局异常处理 ====================
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """处理 HTTP 异常"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ResponseModel.fail(code=exc.status_code, message=str(exc.detail)).model_dump(),
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """处理请求验证异常"""
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=ResponseModel.fail(
+            code=422, 
+            message="Validation Error", 
+            data=exc.errors()  # Pydantic v2 uses .errors() which returns a list of dicts
+        ).model_dump(),
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """处理全局未知异常"""
+    log.error(f"Global exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=ResponseModel.fail(code=500, message="Internal Server Error").model_dump(),
+    )
 
 # ==================== CORS 配置 ====================
 app.add_middleware(

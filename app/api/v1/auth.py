@@ -11,6 +11,7 @@ from app.core.security import create_access_token
 from app.crud.user import user_crud
 from app.main import log
 from app.schemas.auth import LoginRequest, Token
+from app.schemas.response import ResponseModel
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 router = APIRouter()
 
 
-@router.post('/login', response_model=Token, summary='管理员登录')
+@router.post('/login', response_model=ResponseModel[Token], summary='管理员登录')
 async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """
     管理员登录，返回访问令牌
@@ -53,4 +54,4 @@ async def login(login_data: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     log.info(f'User logged in: {user.id} - {user.username}')
 
-    return Token(access_token=access_token, token_type='bearer')
+    return ResponseModel.success(data=Token(access_token=access_token, token_type='bearer'))

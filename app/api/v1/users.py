@@ -11,6 +11,7 @@ from app.crud.user import user_crud
 from app.main import log
 from app.models.user import User
 from app.schemas.user import UserListResponse, UserResponse, UserUpdate, UserPasswordUpdate
+from app.schemas.response import ResponseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import verify_password, get_password_hash
@@ -18,7 +19,7 @@ from app.core.security import verify_password, get_password_hash
 router = APIRouter()
 
 
-@router.get('/', response_model=UserListResponse, summary='获取用户列表')
+@router.get('/', response_model=ResponseModel[UserListResponse], summary='获取用户列表')
 async def list_users(
     skip: int = Query(0, ge=0, description='跳过的记录数'),
     limit: int = Query(100, ge=1, le=100, description='返回的记录数'),
@@ -32,16 +33,16 @@ async def list_users(
     total = await user_crud.get_count(db)
 
     log.info(f'User list retrieved by superuser: {current_user.id}')
-    return UserListResponse(total=total, items=users)
+    return ResponseModel.success(data=UserListResponse(total=total, items=users))
 
 
-@router.get('/me', response_model=UserResponse, summary='获取当前用户信息')
+@router.get('/me', response_model=ResponseModel[UserResponse], summary='获取当前用户信息')
 async def get_current_user_info(current_user: User = Depends(get_current_active_user)):
     """获取当前登录用户的信息"""
-    return current_user
+    return ResponseModel.success(data=current_user)
 
 
-@router.get('/{user_id}', response_model=UserResponse, summary='获取指定用户信息')
+@router.get('/{user_id}', response_model=ResponseModel[UserResponse], summary='获取指定用户信息')
 async def get_user(
     user_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
@@ -60,10 +61,10 @@ async def get_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='User not found')
 
-    return user
+    return ResponseModel.success(data=user)
 
 
-@router.patch('/{user_id}', response_model=UserResponse, summary='更新用户信息')
+@router.patch('/{user_id}', response_model=ResponseModel[UserResponse], summary='更新用户信息')
 async def update_user(
     user_id: int,
     user_in: UserUpdate,
@@ -97,10 +98,10 @@ async def update_user(
     await db.commit()
 
     log.info(f'User updated: {user.id}')
-    return user
+    return ResponseModel.success(data=user)
 
 
-@router.post('/change-password', summary='修改密码')
+@router.post('/change-password', response_model=ResponseModel[dict], summary='修改密码')
 async def change_password(
     password_in: UserPasswordUpdate,
     db: AsyncSession = Depends(get_db),
@@ -121,7 +122,7 @@ async def change_password(
     await db.commit()
     
     log.info(f'User password changed: {current_user.id}')
-    return {"message": "Password updated successfully"}
+    return ResponseModel.success(data={"message": "Password updated successfully"})
 
 
 @router.delete('/{user_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除用户')

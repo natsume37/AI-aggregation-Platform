@@ -21,6 +21,7 @@ from app.schemas.chat import (
     ConversationResponse,
     UsageInfo,
 )
+from app.schemas.response import ResponseModel
 from app.services.chat_service import chat_service
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -30,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 router = APIRouter()
 
 
-@router.post('/completions', summary='聊天完成', response_model=ChatCompletionResponse)
+@router.post('/completions', summary='聊天完成', response_model=ResponseModel[ChatCompletionResponse])
 async def create_chat_completion(
     request: ChatCompletionRequest,
     db: AsyncSession = Depends(get_db),
@@ -66,7 +67,7 @@ async def create_chat_completion(
         )
 
         # 构建响应
-        return ChatCompletionResponse(
+        return ResponseModel.success(data=ChatCompletionResponse(
             id=result['id'],
             conversation_id=result['conversation_id'],
             model=result['model'],
@@ -77,7 +78,7 @@ async def create_chat_completion(
             cost=result['cost'],
             response_time=result['response_time'],
             created_at=datetime.now(timezone.utc),
-        )
+        ))
 
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -154,7 +155,7 @@ async def create_chat_stream_completion(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to setup stream')
 
 
-@router.get('/conversations', response_model=ConversationListResponse, summary='获取对话列表')
+@router.get('/conversations', response_model=ResponseModel[ConversationListResponse], summary='获取对话列表')
 async def list_conversations(
     skip: int = Query(0, ge=0, description='跳过的记录数'),
     limit: int = Query(100, ge=1, le=100, description='返回的记录数'),
@@ -180,10 +181,10 @@ async def list_conversations(
             )
         )
 
-    return ConversationListResponse(total=total, items=items)
+    return ResponseModel.success(data=ConversationListResponse(total=total, items=items))
 
 
-@router.get('/conversations/{conversation_id}', response_model=ConversationDetailResponse, summary='获取对话详情')
+@router.get('/conversations/{conversation_id}', response_model=ResponseModel[ConversationDetailResponse], summary='获取对话详情')
 async def get_conversation(
     conversation_id: int, db: AsyncSession = Depends(get_db), api_key: APIKey = Depends(verify_api_key)
 ):
@@ -193,7 +194,7 @@ async def get_conversation(
     if not conversation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Conversation not found')
 
-    return ConversationDetailResponse(
+    return ResponseModel.success(data=ConversationDetailResponse(
         id=conversation.id,
         title=conversation.title,
         model_name=conversation.model_name,
@@ -202,7 +203,7 @@ async def get_conversation(
         created_at=conversation.created_at,
         updated_at=conversation.updated_at,
         messages=conversation.messages,
-    )
+    ))
 
 
 @router.delete('/conversations/{conversation_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除对话')
@@ -225,7 +226,7 @@ async def delete_conversation(
     return None
 
 
-@router.get('/models', response_model=list[AvailableModelsResponse], summary='获取可用模型列表')
+@router.get('/models', response_model=ResponseModel[list[AvailableModelsResponse]], summary='获取可用模型列表')
 async def list_available_models(api_key: APIKey = Depends(verify_api_key)):
     """获取所有可用的AI模型"""
     providers = model_registry.get_available_providers()
@@ -241,4 +242,4 @@ async def list_available_models(api_key: APIKey = Depends(verify_api_key)):
             log.warning(f'Failed to get models for {provider}: {str(e)}')
             continue
 
-    return result
+    return ResponseModel.success(data=result)

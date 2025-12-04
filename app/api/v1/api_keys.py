@@ -11,13 +11,14 @@ from app.crud.api_key import api_key_crud
 from app.main import log
 from app.models.user import User
 from app.schemas.api_key import APIKeyCreate, APIKeyListItem, APIKeyListResponse, APIKeyResponse, APIKeyUpdate
+from app.schemas.response import ResponseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
 
-@router.post('/', response_model=APIKeyResponse, status_code=status.HTTP_201_CREATED, summary='创建API密钥')
+@router.post('/', response_model=ResponseModel[APIKeyResponse], status_code=status.HTTP_201_CREATED, summary='创建API密钥')
 async def create_api_key(
     api_key_in: APIKeyCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
@@ -34,10 +35,10 @@ async def create_api_key(
     await db.commit()
 
     log.info(f'API key created: {api_key.id} for user: {current_user.id}')
-    return api_key
+    return ResponseModel.success(data=api_key)
 
 
-@router.get('/', response_model=APIKeyListResponse, summary='获取API密钥列表')
+@router.get('/', response_model=ResponseModel[APIKeyListResponse], summary='获取API密钥列表')
 async def list_api_keys(
     skip: int = Query(0, ge=0, description='跳过的记录数'),
     limit: int = Query(100, ge=1, le=100, description='返回的记录数'),
@@ -74,10 +75,10 @@ async def list_api_keys(
         for key in api_keys
     ]
 
-    return APIKeyListResponse(total=len(items), items=items)
+    return ResponseModel.success(data=APIKeyListResponse(total=len(items), items=items))
 
 
-@router.get('/{api_key_id}', response_model=APIKeyResponse, summary='获取API密钥详情')
+@router.get('/{api_key_id}', response_model=ResponseModel[APIKeyResponse], summary='获取API密钥详情')
 async def get_api_key(
     api_key_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
@@ -97,10 +98,10 @@ async def get_api_key(
         log.warning(f'Unauthorized API key access: {current_user.id} -> {api_key_id}')
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough privileges')
 
-    return api_key
+    return ResponseModel.success(data=api_key)
 
 
-@router.patch('/{api_key_id}', response_model=APIKeyListItem, summary='更新API密钥')
+@router.patch('/{api_key_id}', response_model=ResponseModel[APIKeyListItem], summary='更新API密钥')
 async def update_api_key(
     api_key_id: int,
     api_key_in: APIKeyUpdate,
@@ -128,7 +129,7 @@ async def update_api_key(
 
     log.info(f'API key updated: {api_key.id}')
 
-    return APIKeyListItem(
+    return ResponseModel.success(data=APIKeyListItem(
         id=api_key.id,
         name=api_key.name,
         key_preview=api_key.key[:8] + '...' if len(api_key.key) > 8 else api_key.key,
@@ -136,7 +137,7 @@ async def update_api_key(
         expires_at=api_key.expires_at,
         last_used_at=api_key.last_used_at,
         created_at=api_key.created_at,
-    )
+    ))
 
 
 @router.delete('/{api_key_id}', status_code=status.HTTP_204_NO_CONTENT, summary='删除API密钥')
@@ -165,7 +166,7 @@ async def delete_api_key(
     return None
 
 
-@router.post('/{api_key_id}/deactivate', response_model=APIKeyListItem, summary='停用API密钥')
+@router.post('/{api_key_id}/deactivate', response_model=ResponseModel[APIKeyListItem], summary='停用API密钥')
 async def deactivate_api_key(
     api_key_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_approved_user)
 ):
@@ -190,7 +191,7 @@ async def deactivate_api_key(
 
     log.info(f'API key deactivated: {api_key.id}')
 
-    return APIKeyListItem(
+    return ResponseModel.success(data=APIKeyListItem(
         id=api_key.id,
         name=api_key.name,
         key_preview=api_key.key[:8] + '...' if len(api_key.key) > 8 else api_key.key,
@@ -198,4 +199,4 @@ async def deactivate_api_key(
         expires_at=api_key.expires_at,
         last_used_at=api_key.last_used_at,
         created_at=api_key.created_at,
-    )
+    ))
