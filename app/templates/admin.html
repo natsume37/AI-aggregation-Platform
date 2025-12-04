@@ -401,12 +401,14 @@
                 password: loginForm.value.password,
               });
 
-              token.value = res.data.access_token;
+              // Fix: ResponseModel structure is { code, message, data: { access_token, ... } }
+              token.value = res.data.data.access_token;
               localStorage.setItem("admin_token", token.value);
 
               // Get User Info
               const userRes = await api.get("/users/me");
-              userInfo.value = userRes.data;
+              // Fix: ResponseModel structure
+              userInfo.value = userRes.data.data;
               localStorage.setItem("user_info", JSON.stringify(userInfo.value));
 
               if (userInfo.value.must_change_password) {
@@ -436,7 +438,8 @@
           const fetchKeys = async () => {
             try {
               const res = await api.get("/api-keys/");
-              keys.value = res.data.items;
+              // Fix: ResponseModel structure
+              keys.value = res.data.data.items;
             } catch (e) {
               console.error(e);
             }
@@ -447,7 +450,8 @@
               const res = await api.post("/api-keys/", {
                 name: newKey.value.name,
               });
-              createdKey.value = res.data.key;
+              // Fix: ResponseModel structure
+              createdKey.value = res.data.data.key;
               newKey.value.name = "";
               fetchKeys();
             } catch (e) {
@@ -465,7 +469,8 @@
             try {
               // Fetch full key details
               const res = await api.get(`/api-keys/${id}`);
-              const fullKey = res.data.key;
+              // Fix: ResponseModel structure
+              const fullKey = res.data.data.key;
 
               if (fullKey) {
                 await navigator.clipboard.writeText(fullKey);
@@ -537,9 +542,10 @@
                 api.get("/statistics/models"),
               ]);
 
-              stats.value.summary = summaryRes.data;
-              stats.value.daily = dailyRes.data;
-              stats.value.models = modelsRes.data;
+              // Fix: ResponseModel structure
+              stats.value.summary = summaryRes.data.data;
+              stats.value.daily = dailyRes.data.data;
+              stats.value.models = modelsRes.data.data;
 
               renderCharts();
             } catch (e) {
