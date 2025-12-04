@@ -101,7 +101,7 @@ class SiliconFlowAdapter(BaseLLMAdapter):
             # 解析响应
             choice = data['choices'][0]
             message = choice['message']
-            print(data)
+            # print(data)
             raw_usage = data.get('usage', {})
             filtered_usage = {
                 'prompt_tokens': raw_usage.get('prompt_tokens', 0),

@@ -101,11 +101,12 @@ class BaseLLMAdapter(ABC):
         if request.temperature < 0 or request.temperature > 2:
             raise ValueError('Temperature must be between 0 and 2')
 
-        available_models = await self.get_available_models()
-        if request.model not in available_models:
-            raise ValueError(
-                f"Model '{request.model}' not supported by {self.provider.value}. Available models: {available_models}"
-            )
+        # 移除每次请求都调用 API 获取模型列表的逻辑，因为它会导致严重的性能问题和潜在的 Event loop closed 错误
+        # available_models = await self.get_available_models()
+        # if request.model not in available_models:
+        #     raise ValueError(
+        #         f"Model '{request.model}' not supported by {self.provider.value}. Available models: {available_models}"
+        #     )
 
 
 class ModelFetchError(Exception):
