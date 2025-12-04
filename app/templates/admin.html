@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Middleware Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div id="app" class="container mt-5">
+        <h1 class="mb-4">AI Middleware Admin</h1>
+
+        <!-- Login Form -->
+        <div v-if="!token" class="card p-4" style="max-width: 400px; margin: 0 auto;">
+            <h3 class="mb-3">管理员登录</h3>
+            <div class="mb-3">
+                <label class="form-label">用户名</label>
+                <input v-model="loginForm.username" type="text" class="form-control" @keyup.enter="login">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">密码</label>
+                <input v-model="loginForm.password" type="password" class="form-control" @keyup.enter="login">
+            </div>
+            <button @click="login" class="btn btn-primary w-100">登录</button>
+        </div>
+
+        <!-- Dashboard -->
+        <div v-else>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <ul class="nav nav-pills">
+                    <li class="nav-item">
+                        <a class="nav-link" :class="{ active: currentTab === 'stats' }" href="#" @click.prevent="currentTab = 'stats'">统计监控</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" :class="{ active: currentTab === 'keys' }" href="#" @click.prevent="currentTab = 'keys'">API Keys</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" :class="{ active: currentTab === 'password' }" href="#" @click.prevent="currentTab = 'password'">修改密码</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <span class="me-3">欢迎, {{ userInfo.username }}</span>
+                    <button @click="logout" class="btn btn-outline-danger btn-sm">退出</button>
+                </div>
+            </div>
+
+            <!-- Alert for Forced Password Change -->
+            <div v-if="mustChangePassword" class="alert alert-warning">
+                <strong>安全警告:</strong> 系统检测到您必须修改密码才能继续操作。请前往“修改密码”页面进行更新。
+            </div>
+
+            <!-- Statistics Tab -->
+            <div v-show="currentTab === 'stats'">
+                <!-- Summary Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-white bg-primary mb-3">
+                            <div class="card-header">总 Token 消耗 (30天)</div>
+                            <div class="card-body">
+                                <h3 class="card-title">{{ stats.summary.total_tokens?.toLocaleString() || 0 }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-success mb-3">
+                            <div class="card-header">总成本 (USD)</div>
+                            <div class="card-body">
+                                <h3 class="card-title">${{ stats.summary.total_cost?.toFixed(4) || 0 }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-info mb-3">
+                            <div class="card-header">总请求数</div>
+                            <div class="card-body">
+                                <h3 class="card-title">{{ stats.summary.request_count?.toLocaleString() || 0 }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-warning mb-3">
+                            <div class="card-header">平均响应时间</div>
+                            <div class="card-body">
+                                <h3 class="card-title">{{ stats.summary.avg_response_time?.toFixed(2) || 0 }}s</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">每日 Token 消耗趋势</div>
+                            <div class="card-body">
+                                <canvas id="dailyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">模型使用分布 (Token)</div>
+                            <div class="card-body">
+                                <canvas id="modelChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Keys Tab -->
+            <div v-show="currentTab === 'keys'">
+                <!-- Create Key Form -->
+                <div class="card mb-4 p-3">
+                    <h5>创建新 Key</h5>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <input v-model="newKey.name" type="text" class="form-control" placeholder="Key 名称">
+                        </div>
+                        <div class="col-md-2">
+                            <button @click="createKey" class="btn btn-success w-100">创建</button>
+                        </div>
+                    </div>
+                    <div v-if="createdKey" class="alert alert-success mt-3">
+                        <strong>新 Key 已创建:</strong> {{ createdKey }}
+                        <br>
+                        <small class="text-muted">请立即复制，它不会再次显示。</small>
+                    </div>
+                </div>
+
+                <!-- Keys List -->
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>名称</th>
+                            <th>预览</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="key in keys" :key="key.id">
+                            <td>{{ key.id }}</td>
+                            <td>{{ key.name }}</td>
+                            <td>
+                                <code class="text-muted">{{ key.key_preview }}</code>
+                            </td>
+                            <td>
+                                <span :class="key.is_active ? 'badge bg-success' : 'badge bg-secondary'">
+                                    {{ key.is_active ? '活跃' : '停用' }}
+                                </span>
+                            </td>
+                            <td>{{ new Date(key.created_at).toLocaleString() }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button @click="copyKey(key.id)" class="btn btn-outline-primary" title="复制完整Key">
+                                        复制
+                                    </button>
+                                    <button @click="openEditModal(key)" class="btn btn-outline-secondary">
+                                        编辑
+                                    </button>
+                                    <button @click="deleteKey(key.id)" class="btn btn-outline-danger">
+                                        删除
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Edit Key Modal -->
+            <div v-if="showEditModal" class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">编辑 API Key</h5>
+                            <button type="button" class="btn-close" @click="closeEditModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">名称</label>
+                                <input v-model="editForm.name" type="text" class="form-control">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @click="closeEditModal">取消</button>
+                            <button type="button" class="btn btn-primary" @click="updateKey">保存</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Change Password Tab -->
+            <div v-show="currentTab === 'password'">
+                <div class="card p-4" style="max-width: 500px; margin: 0 auto;">
+                    <h4 class="mb-3">修改密码</h4>
+                    <div class="mb-3">
+                        <label class="form-label">旧密码</label>
+                        <input v-model="passwordForm.old_password" type="password" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">新密码</label>
+                        <input v-model="passwordForm.new_password" type="password" class="form-control">
+                        <div class="form-text">密码长度至少 6 位</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">确认新密码</label>
+                        <input v-model="passwordForm.confirm_password" type="password" class="form-control">
+                    </div>
+                    <button @click="changePassword" class="btn btn-primary w-100">更新密码</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, watch, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const token = ref(localStorage.getItem('admin_token') || '');
+                const userInfo = ref(JSON.parse(localStorage.getItem('user_info') || '{}'));
+                const loginForm = ref({ username: '', password: '' });
+                const currentTab = ref('stats');
+                const mustChangePassword = ref(false);
+                
+                // Data
+                const keys = ref([]);
+                const newKey = ref({ name: '' });
+                const createdKey = ref('');
+                
+                // Edit Modal State
+                const showEditModal = ref(false);
+                const editForm = ref({ id: null, name: '' });
+
+                const stats = ref({
+                    summary: {},
+                    daily: [],
+                    models: []
+                });
+                const passwordForm = ref({
+                    old_password: '',
+                    new_password: '',
+                    confirm_password: ''
+                });
+
+                // Charts instances
+                let dailyChart = null;
+                let modelChart = null;
+
+                const api = axios.create({
+                    baseURL: '/api/v1',
+                });
+
+                // Add token to requests
+                api.interceptors.request.use(config => {
+                    if (token.value) {
+                        config.headers.Authorization = `Bearer ${token.value}`;
+                    }
+                    return config;
+                });
+
+                // Handle 401 and 403
+                api.interceptors.response.use(
+                    response => response,
+                    error => {
+                        if (error.response) {
+                            if (error.response.status === 401) {
+                                logout();
+                            } else if (error.response.status === 403) {
+                                const detail = error.response.data.detail;
+                                if (detail && detail.includes('Password change required')) {
+                                    mustChangePassword.value = true;
+                                    currentTab.value = 'password';
+                                    alert('为了您的账户安全，请先修改初始密码。');
+                                } else {
+                                    alert('权限不足: ' + detail);
+                                }
+                            }
+                        }
+                        return Promise.reject(error);
+                    }
+                );
+
+                const login = async () => {
+                    try {
+                        const res = await api.post('/auth/login', {
+                            username: loginForm.value.username,
+                            password: loginForm.value.password
+                        });
+                        
+                        token.value = res.data.access_token;
+                        localStorage.setItem('admin_token', token.value);
+                        
+                        // Get User Info
+                        const userRes = await api.get('/users/me');
+                        userInfo.value = userRes.data;
+                        localStorage.setItem('user_info', JSON.stringify(userInfo.value));
+
+                        if (userInfo.value.must_change_password) {
+                            mustChangePassword.value = true;
+                            currentTab.value = 'password';
+                        } else {
+                            fetchStats();
+                        }
+                    } catch (e) {
+                        const msg = e.response?.data?.detail;
+                        alert('登录失败: ' + (typeof msg === 'object' ? JSON.stringify(msg) : (msg || e.message)));
+                    }
+                };
+
+                const logout = () => {
+                    token.value = '';
+                    userInfo.value = {};
+                    localStorage.removeItem('admin_token');
+                    localStorage.removeItem('user_info');
+                };
+
+                const fetchKeys = async () => {
+                    try {
+                        const res = await api.get('/api-keys/');
+                        keys.value = res.data.items;
+                    } catch (e) {
+                        console.error(e);
+                    }
+                };
+
+                const createKey = async () => {
+                    try {
+                        const res = await api.post('/api-keys/', {
+                            name: newKey.value.name
+                        });
+                        createdKey.value = res.data.key;
+                        newKey.value.name = '';
+                        fetchKeys();
+                    } catch (e) {
+                        const msg = e.response?.data?.detail;
+                        alert('创建失败: ' + (typeof msg === 'object' ? JSON.stringify(msg) : (msg || e.message)));
+                    }
+                };
+
+                const copyKey = async (id) => {
+                    try {
+                        // Fetch full key details
+                        const res = await api.get(`/api-keys/${id}`);
+                        const fullKey = res.data.key;
+                        
+                        if (fullKey) {
+                            await navigator.clipboard.writeText(fullKey);
+                            alert('API Key 已复制到剪贴板');
+                        } else {
+                            alert('无法获取完整 Key');
+                        }
+                    } catch (e) {
+                        const msg = e.response?.data?.detail;
+                        alert('复制失败: ' + (typeof msg === 'object' ? JSON.stringify(msg) : (msg || e.message)));
+                    }
+                };
+
+                const openEditModal = (key) => {
+                    editForm.value = { id: key.id, name: key.name };
+                    showEditModal.value = true;
+                };
+
+                const closeEditModal = () => {
+                    showEditModal.value = false;
+                    editForm.value = { id: null, name: '' };
+                };
+
+                const updateKey = async () => {
+                    if (!editForm.value.name) return;
+                    try {
+                        await api.patch(`/api-keys/${editForm.value.id}`, {
+                            name: editForm.value.name
+                        });
+                        closeEditModal();
+                        fetchKeys();
+                    } catch (e) {
+                        const msg = e.response?.data?.detail;
+                        alert('更新失败: ' + (typeof msg === 'object' ? JSON.stringify(msg) : (msg || e.message)));
+                    }
+                };
+
+                const deleteKey = async (id) => {
+                    if (!confirm('确定要删除吗？')) return;
+                    try {
+                        await api.delete(`/api-keys/${id}`);
+                        fetchKeys();
+                    } catch (e) {
+                        const msg = e.response?.data?.detail;
+                        alert('删除失败: ' + (typeof msg === 'object' ? JSON.stringify(msg) : (msg || e.message)));
+                    }
+                };
+
+                const fetchStats = async () => {
+                    try {
+                        const [summaryRes, dailyRes, modelsRes] = await Promise.all([
+                            api.get('/statistics/summary'),
+                            api.get('/statistics/daily'),
+                            api.get('/statistics/models')
+                        ]);
+                        
+                        stats.value.summary = summaryRes.data;
+                        stats.value.daily = dailyRes.data;
+                        stats.value.models = modelsRes.data;
+                        
+                        renderCharts();
+                    } catch (e) {
+                        console.error("Failed to fetch stats", e);
+                    }
+                };
+
+                const renderCharts = () => {
+                    nextTick(() => {
+                        const dailyCtx = document.getElementById('dailyChart');
+                        const modelCtx = document.getElementById('modelChart');
+
+                        if (!dailyCtx || !modelCtx) return;
+
+                        if (dailyChart) dailyChart.destroy();
+                        if (modelChart) modelChart.destroy();
+
+                        // Daily Chart
+                        dailyChart = new Chart(dailyCtx, {
+                            type: 'line',
+                            data: {
+                                labels: stats.value.daily.map(d => d.date),
+                                datasets: [{
+                                    label: 'Token 消耗',
+                                    data: stats.value.daily.map(d => d.tokens),
+                                    borderColor: 'rgb(75, 192, 192)',
+                                    tension: 0.1
+                                }]
+                            }
+                        });
+
+                        // Model Chart
+                        modelChart = new Chart(modelCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: stats.value.models.map(m => m.model),
+                                datasets: [{
+                                    data: stats.value.models.map(m => m.tokens),
+                                    backgroundColor: [
+                                        'rgb(255, 99, 132)',
+                                        'rgb(54, 162, 235)',
+                                        'rgb(255, 205, 86)',
+                                        'rgb(75, 192, 192)',
+                                        'rgb(153, 102, 255)'
+                                    ]
+                                }]
+                            }
+                        });
+                    });
+                };
+
+                const changePassword = async () => {
+                    if (passwordForm.value.new_password !== passwordForm.value.confirm_password) {
+                        alert('两次输入的新密码不一致');
+                        return;
+                    }
+                    
+                    try {
+                        await api.post('/users/change-password', {
+                            old_password: passwordForm.value.old_password,
+                            new_password: passwordForm.value.new_password
+                        });
+                        
+                        alert('密码修改成功，请重新登录');
+                        mustChangePassword.value = false;
+                        logout();
+                    } catch (e) {
+                        alert('修改失败: ' + (e.response?.data?.detail || e.message));
+                    }
+                };
+
+                // Watch tab changes to fetch data
+                watch(currentTab, (newTab) => {
+                    if (newTab === 'stats') fetchStats();
+                    if (newTab === 'keys') fetchKeys();
+                });
+
+                onMounted(() => {
+                    if (token.value) {
+                        // Check if user needs to change password
+                        if (userInfo.value.must_change_password) {
+                            mustChangePassword.value = true;
+                            currentTab.value = 'password';
+                        } else {
+                            fetchStats();
+                        }
+                    }
+                });
+
+                return {
+                    token,
+                    userInfo,
+                    loginForm,
+                    currentTab,
+                    mustChangePassword,
+                    keys,
+                    newKey,
+                    createdKey,
+                    showEditModal,
+                    editForm,
+                    stats,
+                    passwordForm,
+                    login,
+                    logout,
+                    createKey,
+                    copyKey,
+                    openEditModal,
+                    closeEditModal,
+                    updateKey,
+                    deleteKey,
+                    changePassword
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
