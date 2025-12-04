@@ -8,13 +8,15 @@
 from app.api.deps import get_current_active_user, get_current_superuser, get_current_approved_user
 from app.core.database import get_db
 from app.crud.user import user_crud
-from app.main import log
+import logging
 from app.models.user import User
 from app.schemas.user import UserListResponse, UserResponse, UserUpdate, UserPasswordUpdate
 from app.schemas.response import ResponseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import verify_password, get_password_hash
+
+log = logging.getLogger("app")
 
 router = APIRouter()
 

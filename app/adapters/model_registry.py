@@ -11,7 +11,9 @@ from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelProvider
 from app.adapters.deepseek import DeepSeekerAdapter
 from app.adapters.siliconflow import SiliconFlowAdapter
 from app.core.config import settings
-from app.main import log
+import logging
+
+log = logging.getLogger("app")
 
 
 class ModelRegistry:

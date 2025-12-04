@@ -11,11 +11,13 @@ from app.adapters.model_registry import model_registry
 from app.core.enums import ModelProvider
 from app.crud.conversation import ConversationCreate, conversation_crud
 from app.crud.usage_log import UsageLogCreate, usage_log_crud
-from app.main import log
+import logging
 from app.models.conversation import Conversation
 from app.schemas.chat import ChatMessageRequest
 from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
+
+log = logging.getLogger("app")
 
 
 class ChatService:

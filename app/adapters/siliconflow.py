@@ -6,11 +6,13 @@
 
 import httpx
 import json
-from app.adapters.base import BaseLLMAdapter, ChatRequest, ChatResponse, StreamChunk
+from app.adapters.base import BaseLLMAdapter, ChatRequest, ChatResponse, StreamChunk, ModelRequestError
 from app.core.config import settings
 from app.core.enums import ModelProvider
-from app.main import log
+import logging
 from collections.abc import AsyncIterator
+
+log = logging.getLogger("app")
 
 
 class SiliconFlowAdapter(BaseLLMAdapter):
@@ -26,7 +28,10 @@ class SiliconFlowAdapter(BaseLLMAdapter):
         super().__init__(api_key, base_url)
         self.base_url = base_url or 'https://api.siliconflow.cn/v1'
         self.provider = ModelProvider.SILICONFLOW
-        self.client = httpx.AsyncClient(
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """获取 HTTP 客户端"""
+        return httpx.AsyncClient(
             base_url=self.base_url,
             headers={'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'},
             timeout=settings.CONNECT_TIMEOUT,
@@ -36,14 +41,15 @@ class SiliconFlowAdapter(BaseLLMAdapter):
         """获取可用模型（异步方法）"""
 
         try:
-            # 使用 self.client 异步发送 GET 请求
-            response = await self.client.get('/models')
-            response.raise_for_status()
-            data = response.json()
+            async with await self._get_client() as client:
+                # 使用 client 异步发送 GET 请求
+                response = await client.get('/models')
+                response.raise_for_status()
+                data = response.json()
 
-            # 提取 id 列表
-            model_ids = [item['id'] for item in data.get('data', [])]
-            return model_ids
+                # 提取 id 列表
+                model_ids = [item['id'] for item in data.get('data', [])]
+                return model_ids
 
         except httpx.HTTPStatusError as e:
             raise Exception(f'API 请求失败: {e.response.status_code} - {e.response.text}') from e
@@ -87,9 +93,10 @@ class SiliconFlowAdapter(BaseLLMAdapter):
         try:
             log.debug(f'Sending request to SiliconFlow: {payload}')
 
-            response = await self.client.post('/chat/completions', json=payload)
-            response.raise_for_status()
-            data = response.json()
+            async with await self._get_client() as client:
+                response = await client.post('/chat/completions', json=payload)
+                response.raise_for_status()
+                data = response.json()
 
             # 解析响应
             choice = data['choices'][0]
@@ -111,10 +118,10 @@ class SiliconFlowAdapter(BaseLLMAdapter):
             )
         except httpx.HTTPStatusError as e:
             log.error(f'SiliconFlow API error: {e.response.status_code} - {e.response.text}')
-            raise ModuleNotFoundError(f'SiliconFlow API error: {e.response.text}')
+            raise ModelRequestError(f'SiliconFlow API error: {e.response.text}')
         except Exception as e:
             log.error(f'Unexpected error: {str(e)}')
-            raise ModuleNotFoundError(str(e))
+            raise ModelRequestError(str(e))
 
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """流式聊天"""
@@ -127,32 +134,33 @@ class SiliconFlowAdapter(BaseLLMAdapter):
             payload['max_tokens'] = request.max_tokens
 
         try:
-            async with self.client.stream('POST', '/chat/completions', json=payload) as response:
-                response.raise_for_status()
+            async with await self._get_client() as client:
+                async with client.stream('POST', '/chat/completions', json=payload) as response:
+                    response.raise_for_status()
 
-                async for line in response.aiter_lines():
-                    if not line.strip():
-                        continue
-
-                    if line.startswith('data: '):
-                        data_str = line[6:]
-
-                        if data_str == '[DONE]':
-                            break
-
-                        try:
-                            data = json.loads(data_str)
-                            choice = data['choices'][0]
-                            delta = choice.get('delta', {})
-
-                            if 'content' in delta:
-                                yield StreamChunk(content=delta['content'], finish_reason=None)
-
-                            if choice.get('finish_reason'):
-                                yield StreamChunk(content='', finish_reason=choice['finish_reason'])
-
-                        except json.JSONDecodeError:
+                    async for line in response.aiter_lines():
+                        if not line.strip():
                             continue
+
+                        if line.startswith('data: '):
+                            data_str = line[6:]
+
+                            if data_str == '[DONE]':
+                                break
+
+                            try:
+                                data = json.loads(data_str)
+                                choice = data['choices'][0]
+                                delta = choice.get('delta', {})
+
+                                if 'content' in delta:
+                                    yield StreamChunk(content=delta['content'], finish_reason=None)
+
+                                if choice.get('finish_reason'):
+                                    yield StreamChunk(content='', finish_reason=choice['finish_reason'])
+
+                            except json.JSONDecodeError:
+                                continue
 
         except httpx.HTTPStatusError as e:
             log.error(f'SiliconFlow streaming error: {e.response.status_code}')
@@ -163,5 +171,4 @@ class SiliconFlowAdapter(BaseLLMAdapter):
 
     async def close(self):
         """关闭客户端"""
-
-        await self.client.aclose()
+        pass

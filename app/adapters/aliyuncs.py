@@ -8,8 +8,10 @@ import httpx
 from app.adapters.base import BaseLLMAdapter, ChatRequest, ChatResponse, ModelRequestError, StreamChunk
 from app.core.config import settings
 from app.core.enums import ModelProvider
-from app.main import log
+import logging
 from collections.abc import AsyncIterator
+
+log = logging.getLogger("app")
 
 
 class AliyunAsapter(BaseLLMAdapter):
@@ -19,7 +21,10 @@ class AliyunAsapter(BaseLLMAdapter):
         super().__init__(api_key, base_url)
         self.base_url = base_url or 'https://dashscope.aliyuncs.com/compatible-mode/v1'
         self.provider = ModelProvider.ALIYUNCS
-        self.client = httpx.AsyncClient(
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """获取 HTTP 客户端"""
+        return httpx.AsyncClient(
             base_url=self.base_url,
             headers={'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'},
             timeout=settings.CONNECT_TIMEOUT,
@@ -45,9 +50,10 @@ class AliyunAsapter(BaseLLMAdapter):
         await self.validate_request(request)
         try:
             payload = self._build_payload(request, is_stream=False, is_enable_thinking=False)
-            response = await self.client.post('/chat/completions', json=payload)
-            response.raise_for_status()
-            data = response.json()
+            async with await self._get_client() as client:
+                response = await client.post('/chat/completions', json=payload)
+                response.raise_for_status()
+                data = response.json()
             return ChatResponse(
                 id=data['id'],
                 model=data['model'],
@@ -70,7 +76,8 @@ class AliyunAsapter(BaseLLMAdapter):
 
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[StreamChunk]:
         """流式聊天"""
-        pass
+        raise NotImplementedError("Aliyun stream not implemented")
+        yield StreamChunk(content="", finish_reason="")
 
     async def get_available_models(self) -> list[str]:
         """获取可用模型列表（同步方法）"""

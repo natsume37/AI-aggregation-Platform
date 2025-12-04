@@ -8,12 +8,14 @@
 from app.api.deps import get_current_active_user, get_current_approved_user
 from app.core.database import get_db
 from app.crud.api_key import api_key_crud
-from app.main import log
+import logging
 from app.models.user import User
 from app.schemas.api_key import APIKeyCreate, APIKeyListItem, APIKeyListResponse, APIKeyResponse, APIKeyUpdate
 from app.schemas.response import ResponseModel
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+log = logging.getLogger("app")
 
 router = APIRouter()
 
@@ -94,7 +96,7 @@ async def get_api_key(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='API key not found')
 
     # 检查权限
-    if api_key.user_id != current_user.id:
+    if api_key.user_id != current_user.id and not (current_user.is_superuser or current_user.is_admin):
         log.warning(f'Unauthorized API key access: {current_user.id} -> {api_key_id}')
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough privileges')
 
@@ -120,7 +122,7 @@ async def update_api_key(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='API key not found')
 
     # 检查权限
-    if api_key.user_id != current_user.id:
+    if api_key.user_id != current_user.id and not (current_user.is_superuser or current_user.is_admin):
         log.warning(f'Unauthorized API key update: {current_user.id} -> {api_key_id}')
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough privileges')
 
@@ -155,7 +157,7 @@ async def delete_api_key(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='API key not found')
 
     # 检查权限
-    if api_key.user_id != current_user.id:
+    if api_key.user_id != current_user.id and not (current_user.is_superuser or current_user.is_admin):
         log.warning(f'Unauthorized API key deletion: {current_user.id} -> {api_key_id}')
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough privileges')
 
@@ -182,7 +184,7 @@ async def deactivate_api_key(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='API key not found')
 
     # 检查权限
-    if api_key.user_id != current_user.id:
+    if api_key.user_id != current_user.id and not (current_user.is_superuser or current_user.is_admin):
         log.warning(f'Unauthorized API key deactivation: {current_user.id} -> {api_key_id}')
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough privileges')
 

@@ -10,7 +10,7 @@ from app.adapters.model_registry import model_registry
 from app.api.deps import verify_api_key
 from app.core.database import get_db
 from app.crud.conversation import conversation_crud
-from app.main import log
+import logging
 from app.models.api_key import APIKey
 from app.schemas.chat import (
     AvailableModelsResponse,
@@ -27,6 +27,8 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+
+log = logging.getLogger("app")
 
 router = APIRouter()
 

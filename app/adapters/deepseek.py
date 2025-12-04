@@ -9,8 +9,10 @@ import httpx
 import json
 from app.adapters.base import BaseLLMAdapter, ChatRequest, ChatResponse, ModelProvider, ModelRequestError, StreamChunk
 from app.core.config import settings
-from app.main import log
+import logging
 from collections.abc import AsyncIterator
+
+log = logging.getLogger("app")
 
 
 class DeepSeekerAdapter(BaseLLMAdapter):
@@ -20,7 +22,10 @@ class DeepSeekerAdapter(BaseLLMAdapter):
         super().__init__(api_key, base_url)
         self.base_url = base_url or 'https://api.deepseek.com'
         self.provider = ModelProvider.DEEPSEEK
-        self.client = httpx.AsyncClient(
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """获取 HTTP 客户端"""
+        return httpx.AsyncClient(
             base_url=self.base_url,
             headers={'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'},
             timeout=settings.CONNECT_TIMEOUT,
@@ -48,9 +53,10 @@ class DeepSeekerAdapter(BaseLLMAdapter):
         payload = self._build_payload(request, is_stream=False)
 
         try:
-            response = await self.client.post('/chat/completions', json=payload)
-            response.raise_for_status()
-            data = response.json()
+            async with await self._get_client() as client:
+                response = await client.post('/chat/completions', json=payload)
+                response.raise_for_status()
+                data = response.json()
 
             choice = data['choices'][0]
             message = choice['message']
@@ -85,41 +91,42 @@ class DeepSeekerAdapter(BaseLLMAdapter):
         payload = self._build_payload(request, is_stream=True)
 
         try:
-            async with self.client.stream('POST', '/chat/completions', json=payload) as response:
-                response.raise_for_status()
+            async with await self._get_client() as client:
+                async with client.stream('POST', '/chat/completions', json=payload) as response:
+                    response.raise_for_status()
 
-                # 按行读取 SSE 流
-                async for line in response.aiter_lines():
-                    line = line.strip()
+                    # 按行读取 SSE 流
+                    async for line in response.aiter_lines():
+                        line = line.strip()
 
-                    # 跳过空行和注释
-                    if not line or line.startswith(':'):
-                        continue
-
-                    # 解析 "data: " 前缀
-                    if line.startswith('data: '):
-                        data = line[6:]  # 去掉 "data: " 前缀
-
-                        # 流结束标志
-                        if data == '[DONE]':
-                            break
-
-                        try:
-                            chunk = json.loads(data)
-                            delta = chunk['choices'][0].get('delta', {})
-
-                            if 'content' in delta:
-                                yield StreamChunk(
-                                    content=delta['content'], finish_reason=chunk['choices'][0].get('finish_reason')
-                                )
-
-                            # 最后一个 chunk 可能包含 usage
-                            if 'usage' in chunk:
-                                # 可以选择性地处理 usage
-                                pass
-
-                        except json.JSONDecodeError:
+                        # 跳过空行和注释
+                        if not line or line.startswith(':'):
                             continue
+
+                        # 解析 "data: " 前缀
+                        if line.startswith('data: '):
+                            data = line[6:]  # 去掉 "data: " 前缀
+
+                            # 流结束标志
+                            if data == '[DONE]':
+                                break
+
+                            try:
+                                chunk = json.loads(data)
+                                delta = chunk['choices'][0].get('delta', {})
+
+                                if 'content' in delta:
+                                    yield StreamChunk(
+                                        content=delta['content'], finish_reason=chunk['choices'][0].get('finish_reason')
+                                    )
+
+                                # 最后一个 chunk 可能包含 usage
+                                if 'usage' in chunk:
+                                    # 可以选择性地处理 usage
+                                    pass
+
+                            except json.JSONDecodeError:
+                                continue
 
         except httpx.HTTPStatusError as e:
             log.error(f'DeepSeek API error: {e.response.status_code} - {e.response.text}')
@@ -132,9 +139,10 @@ class DeepSeekerAdapter(BaseLLMAdapter):
         """
         获取可用模型列表
         """
-        res = await self.client.get('/models')
-        res.raise_for_status()
-        data = res.json()
+        async with await self._get_client() as client:
+            res = await client.get('/models')
+            res.raise_for_status()
+            data = res.json()
 
         return [id['id'] for id in data['data']]
 
@@ -146,4 +154,4 @@ class DeepSeekerAdapter(BaseLLMAdapter):
 
     async def close(self):
         """关闭客户端"""
-        await self.client.aclose()
+        pass

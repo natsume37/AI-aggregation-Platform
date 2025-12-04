@@ -9,9 +9,11 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.crud.api_key import api_key_crud
 from app.crud.user import user_crud
-from app.main import log
+import logging
 from app.models.api_key import APIKey
 from app.models.user import User
+
+log = logging.getLogger("app")
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -87,21 +89,30 @@ async def get_current_superuser(current_user: User = Depends(get_current_approve
 
 
 async def verify_api_key(
-    x_api_key: str | None = Header(None, alias='X-API-Key'), db: AsyncSession = Depends(get_db)
+    x_api_key: str | None = Header(None, alias='X-API-Key'),
+    authorization: str | None = Header(None, alias='Authorization'),
+    db: AsyncSession = Depends(get_db)
 ) -> APIKey:
     """
     验证API密钥
     用于API密钥认证的接口
     """
-    if not x_api_key:
+    api_key_value = x_api_key
+    
+    # If X-API-Key is missing, try to extract from Authorization header
+    if not api_key_value and authorization:
+        if authorization.startswith("Bearer "):
+            api_key_value = authorization.split(" ")[1]
+            
+    if not api_key_value:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail='API key required', headers={'WWW-Authenticate': 'ApiKey'}
         )
 
-    api_key_obj = await api_key_crud.get_active_by_key(db, x_api_key)
+    api_key_obj = await api_key_crud.get_active_by_key(db, api_key_value)
 
     if not api_key_obj:
-        log.warning(f'Invalid API key attempted: {x_api_key[:8]}...')
+        log.warning(f'Invalid API key attempted: {api_key_value[:8]}...')
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid or expired API key')
 
     # 检查用户是否必须修改密码

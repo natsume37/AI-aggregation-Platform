@@ -9,8 +9,10 @@ import httpx
 import json
 from app.adapters.base import BaseLLMAdapter, ChatRequest, ChatResponse, ModelProvider, StreamChunk
 from app.core.config import settings
-from app.main import log
+import logging
 from collections.abc import AsyncIterator
+
+log = logging.getLogger("app")
 
 
 class OpenAIAdapter(BaseLLMAdapter):
@@ -28,13 +30,16 @@ class OpenAIAdapter(BaseLLMAdapter):
         super().__init__(api_key, base_url)
         self.base_url = base_url or 'https://api.openai.com/v1'
         self.provider = ModelProvider.OPENAI
-        self.client = httpx.AsyncClient(
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """获取 HTTP 客户端"""
+        return httpx.AsyncClient(
             base_url=self.base_url,
             headers={'Authorization': f'Bearer {self.api_key}', 'Content-Type': 'application/json'},
             timeout=settings.CONNECT_TIMEOUT,
         )
 
-    def get_available_models(self) -> list[str]:
+    async def get_available_models(self) -> list[str]:
         """获取可用模型列表"""
         return list(self.MODEL_PRICING.keys())
 
@@ -68,9 +73,10 @@ class OpenAIAdapter(BaseLLMAdapter):
             payload['max_tokens'] = request.max_tokens
 
         try:
-            response = await self.client.post('/chat/completions', json=payload)
-            response.raise_for_status()
-            data = response.json()
+            async with await self._get_client() as client:
+                response = await client.post('/chat/completions', json=payload)
+                response.raise_for_status()
+                data = response.json()
 
             # 解析响应
             choice = data['choices'][0]
@@ -111,32 +117,33 @@ class OpenAIAdapter(BaseLLMAdapter):
             payload['max_tokens'] = request.max_tokens
 
         try:
-            async with self.client.stream('POST', '/chat/completions', json=payload) as response:
-                response.raise_for_status()
+            async with await self._get_client() as client:
+                async with client.stream('POST', '/chat/completions', json=payload) as response:
+                    response.raise_for_status()
 
-                async for line in response.aiter_lines():
-                    if not line.strip():
-                        continue
-
-                    if line.startswith('data: '):
-                        data_str = line[6:]
-
-                        if data_str == '[DONE]':
-                            break
-
-                        try:
-                            data = json.loads(data_str)
-                            choice = data['choices'][0]
-                            delta = choice.get('delta', {})
-
-                            if 'content' in delta:
-                                yield StreamChunk(content=delta['content'], finish_reason=None)
-
-                            if choice.get('finish_reason'):
-                                yield StreamChunk(content='', finish_reason=choice['finish_reason'])
-
-                        except json.JSONDecodeError:
+                    async for line in response.aiter_lines():
+                        if not line.strip():
                             continue
+
+                        if line.startswith('data: '):
+                            data_str = line[6:]
+
+                            if data_str == '[DONE]':
+                                break
+
+                            try:
+                                data = json.loads(data_str)
+                                choice = data['choices'][0]
+                                delta = choice.get('delta', {})
+
+                                if 'content' in delta:
+                                    yield StreamChunk(content=delta['content'], finish_reason=None)
+
+                                if choice.get('finish_reason'):
+                                    yield StreamChunk(content='', finish_reason=choice['finish_reason'])
+
+                            except json.JSONDecodeError:
+                                continue
 
         except httpx.HTTPStatusError as e:
             log.error(f'OpenAI streaming error: {e.response.status_code}')
@@ -147,4 +154,4 @@ class OpenAIAdapter(BaseLLMAdapter):
 
     async def close(self):
         """关闭客户端"""
-        await self.client.aclose()
+        pass

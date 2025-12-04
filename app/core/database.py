@@ -10,13 +10,9 @@ import logging
 from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
+from app.models.base import Base
 
 log = logging.getLogger("app")
-
-class Base(DeclarativeBase):
-    """SQLAlchemy基础模型类"""
-
-    pass
 
 
 # 创建异步引擎
