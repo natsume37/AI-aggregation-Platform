@@ -4,22 +4,22 @@
 
 ## ✨ 核心特性
 
-*   **🧩 多模型统一接入**：支持 OpenAI、DeepSeek、硅基流动（SiliconFlow）、通义千问等多种主流模型，通过统一的 API 格式（OpenAI 兼容）进行调用。
-*   **🔐 完善的用户鉴权**：基于 OAuth2 和 JWT 的用户认证系统，支持普通用户和管理员权限分级。
-*   **💰 Token 计费与监控**：精确记录每一次调用的 Token 消耗和成本，提供详细的用量统计。
-*   **📊 可视化管理后台**：内置基于 Vue.js 的管理仪表盘，提供流量监控、模型分布统计、用户管理和 API Key 管理功能。
-*   **🛡️ 安全可靠**：支持强制密码修改策略、API Key 权限控制，保障系统安全。
-*   **🚀 高性能与异步**：全链路异步设计（AsyncIO + AsyncPG），轻松应对高并发请求。
-*   **🐳 Docker 一键部署**：提供完整的 Docker 和 Docker Compose 支持，开箱即用。
+- **🧩 多模型统一接入**：支持 OpenAI、DeepSeek、硅基流动（SiliconFlow）、通义千问等多种主流模型，通过统一的 API 格式（OpenAI 兼容）进行调用。
+- **🔐 完善的用户鉴权**：基于 OAuth2 和 JWT 的用户认证系统，支持普通用户和管理员权限分级。
+- **💰 Token 计费与监控**：精确记录每一次调用的 Token 消耗和成本，提供详细的用量统计。
+- **📊 可视化管理后台**：内置基于 Vue.js 的管理仪表盘，提供流量监控、模型分布统计、用户管理和 API Key 管理功能。
+- **🛡️ 安全可靠**：支持强制密码修改策略、API Key 权限控制，保障系统安全。
+- **🚀 高性能与异步**：全链路异步设计（AsyncIO + AsyncPG），轻松应对高并发请求。
+- **🐳 Docker 一键部署**：提供完整的 Docker 和 Docker Compose 支持，开箱即用。
 
 ## 🛠️ 技术栈
 
-*   **后端框架**: FastAPI (Python 3.13+)
-*   **数据库**: PostgreSQL (AsyncPG 驱动)
-*   **ORM**: SQLAlchemy (Async)
-*   **依赖管理**: uv
-*   **前端 (Admin)**: Vue.js 3 (CDN), Chart.js, Bootstrap 5
-*   **部署**: Docker, Docker Compose
+- **后端框架**: FastAPI (Python 3.13+)
+- **数据库**: PostgreSQL (AsyncPG 驱动)
+- **ORM**: SQLAlchemy (Async)
+- **依赖管理**: uv
+- **前端 (Admin)**: Vue.js 3 (CDN), Chart.js, Bootstrap 5
+- **部署**: Docker, Docker Compose
 
 ## 📂 项目结构
 
@@ -55,14 +55,12 @@ AI-aggregation-Platform/
 
 #### 配置文件
 
-配置.env文件
+配置.env 文件
 
 注意测试环境请创建 .env.dev 文件，生产环境请创建 .env.prod 文件
 
-
-
 ```dotenv
-# .env.dev 
+# .env.dev
 # 应用配置
 APP_NAME=AI-aggregation
 APP_VERSION=1.0.0
@@ -114,6 +112,7 @@ SYSTEM_PROMPT='You are an AI assistant of the AI aggregation platform developed 
 **⚠️ 前提**：执行迁移前，必须先在 PostgreSQL 中创建数据库（如 `ai_db`）。
 
 如果尚未创建，请先连接数据库创建：
+
 ```sql
 CREATE DATABASE ai_db;
 ```
@@ -135,7 +134,7 @@ python -m app.main
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8089
 ```
 
-### 5.OpenAPI文档
+### 5.OpenAPI 文档
 
 打开浏览器访问：http://localhost:8089/docs
 ![http://localhost:8089/docs](img/docs.png)
@@ -197,11 +196,13 @@ nano .env
 在 Docker 环境下，数据库主机名应指向 `docker-compose.yml` 中定义的服务名 `db`，而不是 `localhost`。
 
 请修改 `.env` 文件中的 `DATABASE_URL`：
+
 ```dotenv
 # 将 localhost 修改为 db
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/ai_db
 ```
-*注意：如果您修改了 docker-compose.yml 中的数据库密码，请同步修改此处。*
+
+_注意：如果您修改了 docker-compose.yml 中的数据库密码，请同步修改此处。_
 
 #### 6.4 启动服务
 
@@ -212,6 +213,7 @@ sudo docker compose up -d --build
 ```
 
 查看日志以确保服务正常启动：
+
 ```bash
 sudo docker compose logs -f app
 ```
@@ -227,8 +229,8 @@ sudo docker compose exec app uv run alembic upgrade head
 
 #### 6.6 访问服务
 
-*   **API 文档**: http://您的服务器IP:8089/docs
-*   **管理后台**: http://您的服务器IP:8089/admin
+- **API 文档**: http://您的服务器 IP:8089/docs
+- **管理后台**: http://您的服务器 IP:8089/admin
 
 #### 6.7 常用管理命令
 
@@ -345,6 +347,7 @@ nano .env.prod
 ```
 
 **修改 `.env.prod` 中的关键项**：
+
 ```dotenv
 # 数据库连接 (使用 7.2 步设置的密码)
 DATABASE_URL=postgresql+asyncpg://ai_user:your_secure_password@localhost:5432/ai_db
@@ -364,7 +367,8 @@ PORT=8089
 # 运行迁移
 uv run alembic upgrade head
 ```
-*成功执行后，数据库中将生成所有必要的表。*
+
+_成功执行后，数据库中将生成所有必要的表。_
 
 #### 7.6 运行测试
 
@@ -374,8 +378,9 @@ uv run alembic upgrade head
 # 指定 .env.prod 启动
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8089 --env-file .env.prod
 ```
-*   如果看到 `Uvicorn running on ...` 说明启动成功。
-*   按 `Ctrl+C` 停止服务。
+
+- 如果看到 `Uvicorn running on ...` 说明启动成功。
+- 按 `Ctrl+C` 停止服务。
 
 #### 7.7 配置 Systemd 守护进程
 
@@ -437,6 +442,7 @@ sudo nano /etc/nginx/sites-available/ai-platform
 ```
 
 配置示例：
+
 ```nginx
 server {
     listen 80;
@@ -455,10 +461,3 @@ sudo ln -s /etc/nginx/sites-available/ai-platform /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 ```
-
-
-
-
-
-
-
