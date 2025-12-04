@@ -111,12 +111,18 @@ SYSTEM_PROMPT='You are an AI assistant of the AI aggregation platform developed 
 
 ### 3.初始化数据库
 
-```bash
-# 创建迁移
-alembic revision --autogenerate -m "Initial migration"
+**⚠️ 前提**：执行迁移前，必须先在 PostgreSQL 中创建数据库（如 `ai_db`）。
 
+如果尚未创建，请先连接数据库创建：
+```sql
+CREATE DATABASE ai_db;
+```
+
+然后执行以下命令初始化表结构：
+
+```bash
 # 执行迁移
-alembic upgrade head
+uv run alembic upgrade head
 ```
 
 ### 4.运行应用
@@ -238,6 +244,216 @@ sudo docker compose logs -f app
 
 # 进入应用容器终端
 sudo docker compose exec app /bin/bash
+```
+
+### 7. Linux (Ubuntu) 完整部署指南 (手动部署)
+
+本指南将引导您在 Linux 服务器（Ubuntu 20.04/22.04+）上从零开始部署本项目。
+
+#### 7.1 安装 PostgreSQL 数据库
+
+首先更新系统并安装 PostgreSQL。
+
+```bash
+# 更新软件源
+sudo apt update && sudo apt upgrade -y
+
+# 安装 PostgreSQL
+sudo apt install -y postgresql postgresql-contrib
+
+# 启动并设置开机自启
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+#### 7.2 配置数据库用户与库
+
+默认 PostgreSQL 使用 `postgres` 用户。我们需要创建一个专用的数据库用户和数据库。
+
+```bash
+# 切换到 postgres 用户
+sudo -i -u postgres
+
+# 进入数据库命令行
+psql
+
+# --- 以下在 SQL 终端执行 ---
+
+# 1. 创建用户 (请将 'your_secure_password' 替换为您的强密码)
+CREATE USER ai_user WITH PASSWORD 'your_secure_password';
+
+# 2. 创建数据库
+CREATE DATABASE ai_db OWNER ai_user;
+
+# 3. 授予权限
+GRANT ALL PRIVILEGES ON DATABASE ai_db TO ai_user;
+
+# 4. 退出
+\q
+
+# --- SQL 结束 ---
+
+# 退出 postgres 用户
+exit
+```
+
+#### 7.3 环境准备 (Python & uv)
+
+本项目使用 `uv` 进行极速依赖管理。
+
+```bash
+# 1. 安装基础依赖
+sudo apt install -y git curl build-essential libssl-dev zlib1g-dev \
+libbz2-dev libreadline-dev libsqlite3-dev wget llvm libncurses5-dev \
+libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev python3-openssl
+
+# 2. 安装 uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 3. 使 uv 生效
+source $HOME/.cargo/env
+```
+
+#### 7.4 克隆项目
+
+```bash
+# 切换到部署目录 (例如 /opt)
+cd /opt
+
+# 获取代码 (使用 SSH)
+# 请确保您的服务器已配置 GitHub SSH Key，否则请使用 HTTPS 链接
+sudo git clone git@github.com:natsume37/AI-aggregation-Platform.git
+
+# 设置权限 (将 owner 改为当前登录用户，例如 ubuntu)
+sudo chown -R $USER:$USER AI-aggregation-Platform
+
+# 进入项目目录
+cd AI-aggregation-Platform
+
+# 安装依赖 (uv 会自动创建虚拟环境并同步依赖)
+uv sync
+```
+
+#### 7.5 配置文件与数据库初始化 (Alembic)
+
+```bash
+# 1. 复制生产环境配置
+cp .env.dev .env.prod
+
+# 2. 修改配置
+nano .env.prod
+```
+
+**修改 `.env.prod` 中的关键项**：
+```dotenv
+# 数据库连接 (使用 7.2 步设置的密码)
+DATABASE_URL=postgresql+asyncpg://ai_user:your_secure_password@localhost:5432/ai_db
+
+# 环境模式
+ENVIRONMENT=production
+DEBUG=false
+
+# 端口
+PORT=8089
+```
+
+**初始化数据库表结构**：
+使用 Alembic 将数据表结构应用到数据库中。
+
+```bash
+# 运行迁移
+uv run alembic upgrade head
+```
+*成功执行后，数据库中将生成所有必要的表。*
+
+#### 7.6 运行测试
+
+在配置后台服务前，先手动启动测试一下是否正常。
+
+```bash
+# 指定 .env.prod 启动
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8089 --env-file .env.prod
+```
+*   如果看到 `Uvicorn running on ...` 说明启动成功。
+*   按 `Ctrl+C` 停止服务。
+
+#### 7.7 配置 Systemd 守护进程
+
+为了让服务在后台稳定运行并开机自启，我们需要配置 Systemd。
+
+```bash
+sudo nano /etc/systemd/system/ai-platform.service
+```
+
+写入以下内容 (请根据实际情况修改 `User` 和路径)：
+
+```ini
+[Unit]
+Description=AI Aggregation Platform Service
+After=network.target postgresql.service
+
+[Service]
+# 运行服务的用户 (建议使用当前非 root 用户，如 ubuntu)
+User=ubuntu
+Group=ubuntu
+
+# 项目根目录
+WorkingDirectory=/opt/AI-aggregation-Platform
+
+# 启动命令
+# 注意：需使用 uv 的绝对路径，通常在 /home/用户名/.cargo/bin/uv
+# 可通过 `which uv` 查看
+ExecStart=/home/ubuntu/.cargo/bin/uv run uvicorn app.main:app --host 0.0.0.0 --port 8089 --workers 4 --env-file .env.prod
+
+# 重启策略
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### 7.8 启动服务
+
+```bash
+# 重载配置
+sudo systemctl daemon-reload
+
+# 启动服务
+sudo systemctl start ai-platform
+
+# 设置开机自启
+sudo systemctl enable ai-platform
+
+# 查看运行状态
+sudo systemctl status ai-platform
+```
+
+#### 7.9 配置 Nginx 反向代理 (可选)
+
+```bash
+sudo apt install -y nginx
+sudo nano /etc/nginx/sites-available/ai-platform
+```
+
+配置示例：
+```nginx
+server {
+    listen 80;
+    server_name your_domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8089;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/ai-platform /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
 ```
 
 
