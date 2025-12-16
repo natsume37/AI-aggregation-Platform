@@ -436,6 +436,11 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 ```
+##  注意文件的执行权限
+
+```bash
+chmod +x /root/work/AI-aggregation-Platform/gunicorn_start.sh
+```
 
 #### 8.8 启动服务
 
