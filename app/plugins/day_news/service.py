@@ -4,8 +4,8 @@ from fastapi import HTTPException, status
 
 
 class NewsService:
-    BASE_URL = "https://60s-static.viki.moe/images"
-    API_URL = "https://60s.viki.moe/v2/60s?encoding=json"
+    BASE_URL = "https://60s-static.viki.moe"
+    # API_URL = "https://60s-static.viki.moe/60s/2025-12-01.json"
 
     # 定义请求头，模拟浏览器
     HEADERS = {
@@ -19,7 +19,7 @@ class NewsService:
         if not date_str:
             date_str = datetime.datetime.now().strftime('%Y-%m-%d')
 
-        url = f"{self.BASE_URL}/{date_str}.png"
+        url = f"{self.BASE_URL}/images/{date_str}.png"
 
         # 验证链接有效性，同样加上 headers
         async with httpx.AsyncClient(headers=self.HEADERS, follow_redirects=True) as client:
@@ -29,7 +29,7 @@ class NewsService:
                     # 如果是今天，尝试昨天
                     if date_str == datetime.datetime.now().strftime('%Y-%m-%d'):
                         yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
-                        url = f"{self.BASE_URL}/{yesterday}.png"
+                        url = f"{self.BASE_URL}/images/{yesterday}.png"
                         resp = await client.head(url)
                         if resp.status_code != 200:
                             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -63,13 +63,22 @@ class NewsService:
         """
         获取新闻JSON数据
         """
+        today = datetime.datetime.now().strftime('%Y-%m-%d')
+        api_url = f"https://60s-static.viki.moe/60s/{today}.json"
+
         # 关键修改：添加 headers 和 follow_redirects=True
         async with httpx.AsyncClient(headers=self.HEADERS, follow_redirects=True, timeout=10.0) as client:
             try:
-                resp = await client.get(self.API_URL)
+                resp = await client.get(api_url)
 
                 # 打印日志帮助调试（如果服务器有日志系统）
                 # print(f"Status: {resp.status_code}, Content: {resp.text[:100]}")
+
+                if resp.status_code != 200:
+                     # 如果是今天，尝试昨天
+                    yesterday = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+                    api_url = f"https://60s-static.viki.moe/60s/{yesterday}.json"
+                    resp = await client.get(api_url)
 
                 resp.raise_for_status()  # 如果是 4xx 或 5xx 会抛出异常
                 return resp.json()
