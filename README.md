@@ -9,7 +9,8 @@
 - **💰 Token 计费与监控**：精确记录每一次调用的 Token 消耗和成本，提供详细的用量统计。
 - **📊 可视化管理后台**：内置基于 Vue.js 的管理仪表盘，提供流量监控、模型分布统计、用户管理和 API Key 管理功能。
 - **🛡️ 安全可靠**：支持强制密码修改策略、API Key 权限控制，保障系统安全。
-- **🚀 高性能与异步**：全链路异步设计（AsyncIO + AsyncPG），轻松应对高并发请求。
+- **🚀 高性能与异步**：全链路异步设计（AsyncIO + AsyncPG），轻松应对高并发请求。经过深度优化，消除了冗余的 I/O 调用，CPU 占用极低。
+- **🧩 插件系统**：内置扩展插件模块，支持每日新闻（60 秒读懂世界）等实用工具，可轻松扩展更多功能。
 - **🐳 Docker 一键部署**：提供完整的 Docker 和 Docker Compose 支持，开箱即用。
 
 ## 🛠️ 技术栈
@@ -31,6 +32,7 @@ AI-aggregation-Platform/
 │   ├── core/          # 核心配置 (Config, Security, Logger)
 │   ├── crud/          # 数据库 CRUD 操作
 │   ├── models/        # SQLAlchemy 数据模型
+│   ├── plugins/       # 扩展插件 (News, etc.)
 │   ├── schemas/       # Pydantic 数据验证模型
 │   ├── services/      # 业务逻辑层 (ChatService)
 │   └── templates/     # 静态模板 (Admin Dashboard)
@@ -107,7 +109,24 @@ CONNECT_TIMEOUT=120
 SYSTEM_PROMPT='You are an AI assistant of the AI aggregation platform developed by Martin. Your name is Xiaomei'
 ```
 
-### 3.初始化数据库
+### 3. 工具箱 (Tools)
+
+平台内置了实用的工具接口，方便集成到 AI Agent 或直接调用。
+
+#### 每日 60 秒新闻 (Daily News)
+
+提供 "60 秒读懂世界" 的每日新闻服务，支持图片流、图片链接和纯文本格式。
+
+- **获取图片链接**: `GET /api/v1/tools/news`
+  - 返回包含图片 URL 和日期的 JSON 数据。
+- **获取图片流**: `GET /api/v1/tools/news/image`
+  - 直接返回图片二进制流，可直接嵌入 `<img>` 标签。
+- **获取完整 JSON 数据**: `GET /api/v1/tools/news/json`
+  - 返回包含新闻列表、微语、农历日期等完整信息的结构化数据。
+- **获取纯文本**: `GET /api/v1/tools/news/text`
+  - 返回格式化后的纯文本新闻摘要。
+
+### 4.初始化数据库
 
 **⚠️ 前提**：执行迁移前，必须先在 PostgreSQL 中创建数据库（如 `ai_db`）。
 
@@ -124,7 +143,7 @@ CREATE DATABASE ai_db;
 uv run alembic upgrade head
 ```
 
-### 4.运行应用
+### 5.运行应用
 
 ```bash
 # 开发模式
@@ -134,16 +153,16 @@ python -m app.main
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8089
 ```
 
-### 5.OpenAPI 文档
+### 6.OpenAPI 文档
 
 打开浏览器访问：http://localhost:8089/docs
 ![http://localhost:8089/docs](img/docs.png)
 
-### 6. Linux (Ubuntu) 部署指南 (Docker)
+### 7. Linux (Ubuntu) 部署指南 (Docker)
 
 本指南将帮助您在 Ubuntu 服务器上使用 Docker 快速部署本项目。
 
-#### 6.1 安装 Docker 和 Docker Compose
+#### 7.1 安装 Docker 和 Docker Compose
 
 如果您尚未安装 Docker，请执行以下命令进行安装：
 
@@ -173,14 +192,14 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 sudo docker run hello-world
 ```
 
-#### 6.2 获取项目代码
+#### 7.2 获取项目代码
 
 ```bash
 git clone https://github.com/natsume37/AI-aggregation-Platform.git
 cd AI-aggregation-Platform
 ```
 
-#### 6.3 配置环境变量
+#### 7.3 配置环境变量
 
 复制示例配置文件并修改：
 
@@ -204,7 +223,7 @@ DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/ai_db
 
 _注意：如果您修改了 docker-compose.yml 中的数据库密码，请同步修改此处。_
 
-#### 6.4 启动服务
+#### 7.4 启动服务
 
 使用 Docker Compose 构建并启动服务：
 
@@ -218,7 +237,7 @@ sudo docker compose up -d --build
 sudo docker compose logs -f app
 ```
 
-#### 6.5 初始化数据库
+#### 7.5 初始化数据库
 
 服务启动后，需要执行数据库迁移以创建表结构：
 
@@ -227,12 +246,12 @@ sudo docker compose logs -f app
 sudo docker compose exec app uv run alembic upgrade head
 ```
 
-#### 6.6 访问服务
+#### 7.6 访问服务
 
 - **API 文档**: http://您的服务器 IP:8089/docs
 - **管理后台**: http://您的服务器 IP:8089/admin
 
-#### 6.7 常用管理命令
+#### 7.7 常用管理命令
 
 ```bash
 # 停止服务
@@ -248,11 +267,11 @@ sudo docker compose logs -f app
 sudo docker compose exec app /bin/bash
 ```
 
-### 7. Linux (Ubuntu) 完整部署指南 (手动部署)
+### 8. Linux (Ubuntu) 完整部署指南 (手动部署)
 
 本指南将引导您在 Linux 服务器（Ubuntu 20.04/22.04+）上从零开始部署本项目。
 
-#### 7.1 安装 PostgreSQL 数据库
+#### 8.1 安装 PostgreSQL 数据库
 
 首先更新系统并安装 PostgreSQL。
 
@@ -268,7 +287,7 @@ sudo systemctl start postgresql
 sudo systemctl enable postgresql
 ```
 
-#### 7.2 配置数据库用户与库
+#### 8.2 配置数据库用户与库
 
 默认 PostgreSQL 使用 `postgres` 用户。我们需要创建一个专用的数据库用户和数据库。
 
@@ -299,7 +318,7 @@ GRANT ALL PRIVILEGES ON DATABASE ai_db TO ai_user;
 exit
 ```
 
-#### 7.3 环境准备 (Python & uv)
+#### 8.3 环境准备 (Python & uv)
 
 本项目使用 `uv` 进行极速依赖管理。
 
@@ -316,7 +335,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.cargo/env
 ```
 
-#### 7.4 克隆项目
+#### 8.4 克隆项目
 
 ```bash
 # 切换到部署目录 (例如 /opt)
@@ -336,7 +355,7 @@ cd AI-aggregation-Platform
 uv sync
 ```
 
-#### 7.5 配置文件与数据库初始化 (Alembic)
+#### 8.5 配置文件与数据库初始化 (Alembic)
 
 ```bash
 # 1. 复制生产环境配置
@@ -370,7 +389,7 @@ uv run alembic upgrade head
 
 _成功执行后，数据库中将生成所有必要的表。_
 
-#### 7.6 运行测试
+#### 8.6 运行测试
 
 在配置后台服务前，先手动启动测试一下是否正常。
 
@@ -382,7 +401,7 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8089 --env-file .env.prod
 - 如果看到 `Uvicorn running on ...` 说明启动成功。
 - 按 `Ctrl+C` 停止服务。
 
-#### 7.7 配置 Systemd 守护进程
+#### 8.7 配置 Systemd 守护进程
 
 为了让服务在后台稳定运行并开机自启，我们需要配置 Systemd。
 
@@ -418,7 +437,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-#### 7.8 启动服务
+#### 8.8 启动服务
 
 ```bash
 # 重载配置
@@ -434,7 +453,7 @@ sudo systemctl enable ai-platform
 sudo systemctl status ai-platform
 ```
 
-#### 7.9 配置 Nginx 反向代理 (可选)
+#### 8.9 配置 Nginx 反向代理 (可选)
 
 ```bash
 sudo apt install -y nginx

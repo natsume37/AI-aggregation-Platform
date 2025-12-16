@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description='FastAPI AI 聚合后台系统',
+    description='基于 FastAPI 的 AI 聚合平台接口文档，支持 OpenAI 格式调用。',
     docs_url='/docs' if settings.DEBUG else None,
     redoc_url='/redoc' if settings.DEBUG else None,
     openapi_url='/openapi.json' if settings.DEBUG else None,

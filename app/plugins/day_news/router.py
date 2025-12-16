@@ -9,10 +9,11 @@ from fastapi import APIRouter, Query
 from fastapi.responses import Response
 from app.plugins.day_news.service import news_service
 from app.schemas.response import ResponseModel
+from app.schemas.news import NewsResponse, NewsDetailResponse, NewsData
 
-router = APIRouter(prefix="/day_news", tags=["day_news"])
+router = APIRouter(prefix="/tools/news", tags=["Tools"])
 
-@router.get("/image", summary="获取每日新闻图片")
+@router.get("/image", summary="获取每日新闻图片(流)")
 async def get_news_image(date: str | None = Query(None, description="日期 (YYYY-MM-DD)，默认今天")):
     """
     获取每日新闻图片（直接返回图片流）
@@ -20,13 +21,37 @@ async def get_news_image(date: str | None = Query(None, description="日期 (YYY
     image_content = await news_service.get_news_image_bytes(date)
     return Response(content=image_content, media_type="image/png")
 
-@router.get("/url", summary="获取每日新闻图片URL", response_model=ResponseModel[dict])
+@router.get("/", summary="获取每日新闻图片URL", response_model=ResponseModel[NewsResponse])
 async def get_news_url(date: str | None = Query(None, description="日期 (YYYY-MM-DD)，默认今天")):
     """
     获取每日新闻图片URL
     """
     url = await news_service.get_news_image_url(date)
-    return ResponseModel.success(data={"url": url, "date": date or "today"})
+    return ResponseModel.success(data=NewsResponse(image_url=url, date=date or "today"))
+
+@router.get("/json", summary="获取每日新闻完整JSON数据", response_model=ResponseModel[NewsDetailResponse])
+async def get_news_json():
+    """
+    获取每日新闻完整结构化数据
+    """
+    result = await news_service.get_news_data()
+    if result.get("code") != 200:
+        return ResponseModel.fail(message=f"获取失败: {result.get('message')}")
+    
+    data = result.get("data", {})
+    # 补充图片链接
+    image_url = await news_service.get_news_image_url()
+    
+    news_data = NewsData(
+        date=data.get("date", ""),
+        day_of_week=data.get("day_of_week", ""),
+        lunar_date=data.get("lunar_date", ""),
+        news=data.get("news", []),
+        tip=data.get("tip", ""),
+        image_url=image_url
+    )
+    
+    return ResponseModel.success(data=NewsDetailResponse(news_data=news_data))
 
 @router.get("/text", summary="获取每日新闻文本")
 async def get_news_text():

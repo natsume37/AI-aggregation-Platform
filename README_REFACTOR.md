@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
 ### 3. 访问管理后台
 
-启动服务后，访问 `http://localhost:8000/admin` (端口取决于你的配置)。
+启动服务后，访问 `http://localhost:8089/admin` (端口取决于你的配置)。
 使用管理员账号登录，即可管理 API Keys。
 
 ## API 使用
