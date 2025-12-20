@@ -64,54 +64,51 @@ AI-aggregation-Platform/
 注意测试环境请创建 .env.dev 文件，生产环境请创建 .env.prod 文件
 
 ```dotenv
-# .env.dev
 # 应用配置
-APP_NAME=AI-aggregation
+APP_NAME="FastAPI AI Backend"
 APP_VERSION=1.0.0
 ENVIRONMENT=development
 DEBUG=true
 
 # 服务器配置
-HOST=127.0.0.1
-PORT=8089
+HOST=0.0.0.0
+PORT=8000
 
 # 数据库配置
-DATABASE_URL=postgresql+asyncpg://用户名:密码@localhost:5432/数据库名
-DATABASE_POOL_SIZE=5
-DATABASE_MAX_OVERFLOW=5
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/ai_backend
+DATABASE_POOL_SIZE=20
+DATABASE_MAX_OVERFLOW=10
 
 # 日志配置
-LOG_LEVEL=DEBUG
+LOG_LEVEL=INFO
 LOG_FILE_PATH=./logs
 
-# 安全配置（开发环境可以用简单的）
-SECRET_KEY= bitianxiang# 必填项
+# 安全配置
+SECRET_KEY=your-secret-key-change-this-in-production
 ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 
-
-## 一下配置至少配置一个
+#AI配置、至少配置一种目前支持：硅基流动、deeseek、OpenAI（openAPI由于贫穷没法测试）
 # OpenAI配置
 OPENAI_API_KEY=
-# 可选
-OPENAI_BASE_URL=https://api.siliconflow.cn/v1
+# 可选 有默认值
+OPENAI_BASE_URL=
 
 # SiliconFlow
 SILICONFLOW_API_KEY=
-SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
-
-# Doubao (Volcengine)
-DOUBAO_API_KEY=
-DOUBAO_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+#可选
+SILICONFLOW_BASE_URL=
 
 # deepseek
 DEEPSEEK_API_KEY=
-DEEPSEEKBASE_URL=https://api.deepseek.com
+#可选
+DEEPSEEKBASE_URL=
 
-# 超时设置 默认120s
-CONNECT_TIMEOUT=120
+#豆包
+DOUBAO_API_KEY=
+DOUBAO_BASE_URL=
 
-#系统提示词设置 默认空！
+#系统提示词设置
 SYSTEM_PROMPT='You are an AI assistant of the AI aggregation platform developed by Martin. Your name is Xiaomei'
 ```
 
