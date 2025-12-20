@@ -10,6 +10,7 @@ from app.adapters.aliyuncs import AliyunAsapter
 from app.adapters.base import BaseLLMAdapter, ChatRequest, ModelProvider
 from app.adapters.deepseek import DeepSeekerAdapter
 from app.adapters.siliconflow import SiliconFlowAdapter
+from app.adapters.doubao import DoubaoAdapter
 from app.core.config import settings
 import logging
 
@@ -47,6 +48,7 @@ class ModelRegistry:
         self.register(ModelProvider.SILICONFLOW, SiliconFlowAdapter)
         self.register(ModelProvider.DEEPSEEK, DeepSeekerAdapter)
         self.register(ModelProvider.ALIYUNCS, AliyunAsapter)
+        self.register(ModelProvider.DOUBAO, DoubaoAdapter)
         # 以后可以添加更多：
         # self.register(ModelProvider.CLAUDE, ClaudeAdapter)
         # self.register(ModelProvider.ZHIPU, ZhipuAdapter)
@@ -101,6 +103,7 @@ class ModelRegistry:
             ModelProvider.SILICONFLOW: getattr(settings, 'SILICONFLOW_API_KEY', ''),
             ModelProvider.DEEPSEEK: getattr(settings, 'DEEPSEEK_API_KEY', ''),
             ModelProvider.ALIYUNCS: getattr(settings, 'ALIYUNCS_API_KEY', ''),
+            ModelProvider.DOUBAO: getattr(settings, 'DOUBAO_API_KEY', ''),
         }
 
         api_key = key_map.get(provider, '')

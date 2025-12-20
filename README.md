@@ -4,7 +4,8 @@
 
 ## ✨ 核心特性
 
-- **🧩 多模型统一接入**：支持 OpenAI、DeepSeek、硅基流动（SiliconFlow）、通义千问等多种主流模型，通过统一的 API 格式（OpenAI 兼容）进行调用。
+- **🧩 多模型统一接入**：支持 OpenAI、DeepSeek、硅基流动（SiliconFlow）、通义千问、豆包等多种主流模型，通过统一的 API 格式（OpenAI 兼容）进行调用。
+- **🖼️ 多模态支持**：支持图片上传与识别（需配合支持视觉的模型，如豆包 Pro、GPT-4o 等），兼容 OpenAI 多模态 API 格式。
 - **🔐 完善的用户鉴权**：基于 OAuth2 和 JWT 的用户认证系统，支持普通用户和管理员权限分级。
 - **💰 Token 计费与监控**：精确记录每一次调用的 Token 消耗和成本，提供详细的用量统计。
 - **📊 可视化管理后台**：内置基于 Vue.js 的管理仪表盘，提供流量监控、模型分布统计、用户管理和 API Key 管理功能。
@@ -50,6 +51,7 @@ AI-aggregation-Platform/
 - **硅基流动 (SiliconFlow)**: [API-key 申请](https://www.siliconflow.cn/)
 - **OpenAI**: [API-key 申请](https://platform.openai.com/)
 - **通义千问 (Aliyun)**: [API-key 申请](https://bailian.console.aliyun.com/)
+- **豆包 (Volcengine)**: [API-key 申请](https://console.volcengine.com/ark/region:ark+cn-beijing/endpoint)
 
 > **扩展性**: 如需添加自定义 AI 模型，只需继承 `app.adapters.base.BaseLLMAdapter` 抽象基类，并实现相关接口即可轻松扩展。
 
@@ -98,6 +100,10 @@ OPENAI_BASE_URL=https://api.siliconflow.cn/v1
 SILICONFLOW_API_KEY=
 SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
 
+# Doubao (Volcengine)
+DOUBAO_API_KEY=
+DOUBAO_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
+
 # deepseek
 DEEPSEEK_API_KEY=
 DEEPSEEKBASE_URL=https://api.deepseek.com
@@ -109,7 +115,91 @@ CONNECT_TIMEOUT=120
 SYSTEM_PROMPT='You are an AI assistant of the AI aggregation platform developed by Martin. Your name is Xiaomei'
 ```
 
-### 3. 工具箱 (Tools)
+#### 豆包（火山 Ark）重要说明
+
+- 本项目对豆包使用 **OpenAI 兼容接口**：`POST {DOUBAO_BASE_URL}/chat/completions`。
+- 如果调用返回 `ModelNotOpen`，表示你的火山账号尚未在 Ark 控制台开通/启用对应模型（或未绑定正确 Endpoint）。请先在控制台启用模型服务后再调用。
+
+### 3. 快速开始（Windows + uv）
+
+1. 初始化数据库（首次运行/新环境）：
+
+```powershell
+uv run alembic upgrade head
+```
+
+2. 启动服务（保持窗口不退出）：
+
+```powershell
+uv run python -m app.main
+```
+
+3. 访问文档：`http://localhost:8089/docs`
+
+### 4. 创建 API Key
+
+对外接口使用 `X-API-Key` 鉴权，你可以二选一：
+
+- **方式 A：管理后台**：启动服务后访问 `http://localhost:8089/admin` 登录并创建 API Key。
+- **方式 B：脚本生成（开发用）**：
+
+```powershell
+uv run python .\create_test_key.py
+```
+
+脚本会在数据库中创建一个可用的测试 Key 并打印出来。
+
+### 5. API 调用示例
+
+#### 5.1 纯文本（统一 OpenAI 格式）
+
+```http
+POST /api/v1/chat/completions
+X-API-Key: <your_api_key>
+Content-Type: application/json
+
+{
+  "provider": "doubao",
+  "model": "doubao-1-5-vision-pro-32k-250115",
+  "messages": [
+    {"role": "user", "content": "你好，简单介绍一下你自己"}
+  ]
+}
+```
+
+#### 5.2 图片理解（Base64 Data URL，多模态）
+
+`messages[].content` 支持传字符串（纯文本）或多模态列表：
+
+```http
+POST /api/v1/chat/completions
+X-API-Key: <your_api_key>
+Content-Type: application/json
+
+{
+  "provider": "doubao",
+  "model": "doubao-1-5-vision-pro-32k-250115",
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {"type": "text", "text": "这是什么植物？"},
+        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,<BASE64>"}}
+      ]
+    }
+  ]
+}
+```
+
+### 6. 测试脚本
+
+项目已提供图片理解测试脚本：`test/test_doubao_vision.py`（图片示例：`test/花.jpg`）。
+
+```powershell
+uv run .\test\test_doubao_vision.py
+```
+
+### 7. 工具箱 (Tools)
 
 平台内置了实用的工具接口，方便集成到 AI Agent 或直接调用。
 
@@ -436,7 +526,8 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 ```
-##  注意文件的执行权限
+
+## 注意文件的执行权限
 
 ```bash
 chmod +x /root/work/AI-aggregation-Platform/gunicorn_start.sh

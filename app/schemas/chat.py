@@ -9,6 +9,7 @@
 from app.core.enums import ModelProvider
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Union, List, Dict, Any
 
 # ==================== 请求 Schemas（API 层使用）====================
 
@@ -17,7 +18,7 @@ class ChatMessageRequest(BaseModel):
     """聊天消息请求（API 层）"""
 
     role: str = Field(..., description='角色: system/user/assistant')
-    content: str = Field(..., description='消息内容')
+    content: Union[str, List[Dict[str, Any]]] = Field(..., description='消息内容，支持文本或多模态列表')
 
 
 class ChatCompletionRequest(BaseModel):

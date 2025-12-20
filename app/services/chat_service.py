@@ -6,6 +6,7 @@
 """
 
 import time
+import json
 from app.adapters.base import BaseLLMAdapter, ChatMessage, ChatRequest, inject_system_prompt
 from app.adapters.model_registry import model_registry
 from app.core.enums import ModelProvider
@@ -22,6 +23,41 @@ log = logging.getLogger("app")
 
 class ChatService:
     """聊天服务"""
+
+    def _content_to_storage(self, content) -> str:
+        if isinstance(content, str):
+            return content
+        return json.dumps(content, ensure_ascii=False)
+
+    def _content_from_storage(self, content: str):
+        if not isinstance(content, str):
+            return content
+        s = content.strip()
+        if not s or s[0] not in '[{':
+            return content
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, (list, dict)):
+                return parsed
+        except Exception:
+            pass
+        return content
+
+    def _content_preview(self, content, limit: int = 50) -> str:
+        if isinstance(content, str):
+            return content[:limit]
+        if isinstance(content, list):
+            texts: list[str] = []
+            for part in content:
+                if not isinstance(part, dict):
+                    continue
+                if part.get('type') == 'text' and isinstance(part.get('text'), str):
+                    texts.append(part['text'])
+            joined = ''.join(texts).strip()
+            if joined:
+                return joined[:limit]
+            return 'Image'
+        return 'New Conversation'
 
     async def chat(
         self,
@@ -106,7 +142,7 @@ class ChatService:
 
             # 获取历史消息
             history_messages = await conversation_crud.get_messages(db, conversation_id, limit=10)
-            historical = [ChatMessage(role=msg.role, content=msg.content) for msg in history_messages]
+            historical = [ChatMessage(role=msg.role, content=self._content_from_storage(msg.content)) for msg in history_messages]
             all_messages = historical + chat_messages  # ← 都是 ChatMessage 类型
         else:
             all_messages = chat_messages
@@ -144,12 +180,12 @@ class ChatService:
         if save_conversation:
             if not conversation:
                 conversation = await self._create_conversation(
-                    db, api_key_id, model, provider, chat_messages[0].content[:50]
+                    db, api_key_id, model, provider, self._content_preview(chat_messages[0].content)
                 )
 
             # 保存用户消息
             for msg in chat_messages:
-                await conversation_crud.add_message(db, conversation.id, msg.role, msg.content)
+                await conversation_crud.add_message(db, conversation.id, msg.role, self._content_to_storage(msg.content))
 
             # 保存 AI 响应
             await conversation_crud.add_message(
@@ -281,12 +317,12 @@ class ChatService:
             if save_conversation:
                 if not conversation:
                     conversation = await self._create_conversation(
-                        db, api_key_id, model, provider, chat_messages[0].content[:50]
+                        db, api_key_id, model, provider, self._content_preview(chat_messages[0].content)
                     )
 
                 # 保存用户消息
                 for msg in chat_messages:
-                    await conversation_crud.add_message(db, conversation.id, msg.role, msg.content)
+                    await conversation_crud.add_message(db, conversation.id, msg.role, self._content_to_storage(msg.content))
 
                 # 保存 AI 完整响应
                 completion_tokens = 0

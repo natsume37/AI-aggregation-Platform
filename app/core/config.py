@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # 阿里云配置
     ALIYUNCS_API_KEY: str = Field(default='', description='阿里云API密钥')
     ALIYUNCS_BASE_URL: str | None = Field(default=None, description='阿里云 API基础URL')
+    # 豆包配置
+    DOUBAO_API_KEY: str = Field(default='', description='豆包API密钥')
+    DOUBAO_BASE_URL: str | None = Field(default='https://ark.cn-beijing.volces.com/api/v3', description='豆包 API基础URL')
 
     # 应用基础配置
     APP_NAME: str = Field(default='FastAPI AI Backend', description='应用名称')

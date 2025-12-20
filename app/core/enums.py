@@ -15,6 +15,7 @@ class ModelProvider(str, Enum):
     DEEPSEEK = 'deepseek'
     SILICONFLOW = 'siliconflow'
     ALIYUNCS = 'aliyuncs'
+    DOUBAO = 'doubao'
     # 可以继续添加...
     # CLAUDE = 'claude'
     # QWEN = 'qwen'

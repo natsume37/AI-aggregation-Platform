@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.enums import ModelProvider
 from collections.abc import AsyncIterator
 from pydantic import BaseModel
+from typing import Union, List, Dict, Any
 
 # ==================== 适配器层的数据模型 ====================
 
@@ -18,7 +19,7 @@ class ChatMessage(BaseModel):
     """聊天消息（适配器层）"""
 
     role: str  # system, user, assistant
-    content: str
+    content: Union[str, List[Dict[str, Any]]]
     name: str | None = None
 
 

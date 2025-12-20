@@ -1,7 +1,7 @@
 import datetime
 import httpx
 from fastapi import HTTPException, status
-
+from app.main import log
 
 class NewsService:
     BASE_URL = "https://60s-static.viki.moe"
@@ -72,7 +72,7 @@ class NewsService:
                 resp = await client.get(api_url)
 
                 # 打印日志帮助调试（如果服务器有日志系统）
-                # print(f"Status: {resp.status_code}, Content: {resp.text[:100]}")
+                log.debug(f"Status: {resp.status_code}, Content: {resp.text[:100]}")
 
                 if resp.status_code != 200:
                      # 如果是今天，尝试昨天
@@ -80,7 +80,8 @@ class NewsService:
                     api_url = f"https://60s-static.viki.moe/60s/{yesterday}.json"
                     resp = await client.get(api_url)
 
-                resp.raise_for_status()  # 如果是 4xx 或 5xx 会抛出异常
+                resp.raise_for_status()
+                # 如果是 4xx 或 5xx 会抛出异常
                 return resp.json()
             except httpx.HTTPStatusError as e:
                 # 专门捕获 HTTP 状态错误（如 403, 404, 500）

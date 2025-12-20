@@ -63,7 +63,7 @@ async def get_news_text():
         if result.get("code") != 200:
             return Response(content=f"获取失败: {result.get('message')}", media_type="text/plain")
         
-        data = result.get("data", {})
+        data = result.get("date", {})
         news_list = data.get("news", [])
         
         # 构建文本

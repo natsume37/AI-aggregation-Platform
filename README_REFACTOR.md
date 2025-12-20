@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
 对外服务现在通过 Header `X-API-Key` 进行认证：
 
-```http
+````http
 POST /api/v1/chat/completions
 X-API-Key: your_generated_api_key
 Content-Type: application/json
@@ -83,4 +83,45 @@ Content-Type: application/json
   "model": "gpt-3.5-turbo",
   "messages": [{"role": "user", "content": "Hello"}]
 }
+## 多模态（图片理解）
+
+`messages[].content` 支持：
+
+- 纯文本：`"content": "..."`
+- 多模态列表（OpenAI 兼容）：`"content": [{"type":"text"...}, {"type":"image_url"...}]`
+
+### 豆包（火山 Ark）调用示例
+
+```bash
+curl -X POST "http://localhost:8089/api/v1/chat/completions" \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: YOUR_API_KEY" \
+    -d '{
+        "provider": "doubao",
+        "model": "doubao-1-5-vision-pro-32k-250115",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "请描述图片内容"},
+                    {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,<BASE64>"}}
+                ]
+            }
+        ]
+    }'
+````
+
+### 常见问题
+
+- `401 Invalid or expired API key`：平台 `X-API-Key` 不存在/过期；请在管理后台创建或使用 `create_test_key.py` 生成。
+- `ModelNotOpen`：火山 Ark 控制台未开通/启用对应模型（或未绑定正确 Endpoint）；需要先在控制台启用。
+
+## 开发辅助脚本
+
+- 生成测试 Key：`uv run python .\\create_test_key.py`
+- 校验 Key 是否存在：`uv run python .\\check_key.py`
+- 图片理解测试：`uv run .\\test\\test_doubao_vision.py`
+
+```
+
 ```
